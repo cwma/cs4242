@@ -65,8 +65,7 @@ class OptimizeWeights():
     Genetic Algorithm to optimise weights for sentiment classification
     """
 
-    #_NUM_WORKERS = multiprocessing.cpu_count()
-    _NUM_WORKERS = 4
+    _NUM_WORKERS = multiprocessing.cpu_count()
     population_size = 10000 # number of agents
     selection = 0.1 # random pool size to select best parents from
     culling = 0.3 # % of population to cull and replace every generation
