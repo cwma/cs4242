@@ -6,7 +6,7 @@ import json
 
 class SentimentClassifier():
 
-	_WEIGHTS = [0.5, 0.5]
+	_WEIGHTS = [0.5367764884578846, 0.46322351154211544]
 	_CLASSIFIERS = [NaiveBayesTweetClassifier, AfinnTweetClassifier]
 
 	def __init__(self):
@@ -59,7 +59,7 @@ class SentimentClassifier():
 if __name__ == '__main__':
 
 	sc = SentimentClassifier()
-	# results = sc.classify_tweets()
-	# print("Correct: {0}, Wrong: {1}, Total: {2}".format(*results))
-	# print("Percentage: {0}".format(results[0] / results[2]))
+	results = sc.classify_tweets()
+	print("Correct: {0}, Wrong: {1}, Total: {2}".format(*results))
+	print("Percentage: {0}".format(results[0] / results[2]))
 	# sc.classify_tweets_export()
