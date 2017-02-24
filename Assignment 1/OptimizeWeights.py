@@ -26,16 +26,18 @@ class ClassifierWorker(multiprocessing.Process):
         self._queue = queue
         self._results = results
         self.daemon = True
+        self._tag_count = 3
         self._preprocesssed_results = [json.load(open("dataset/NaiveBayesTweetClassifier_results.json", 'r')), \
                                        json.load(open("dataset/AfinnTweetClassifier_results.json", 'r'))]
-        self._tweets = Tweets.TestTweets()
+        self._tweets = Tweets.DevTweets()
 
     def _combine_scores(self, scores, weights):
         final_score = {"positive": 0, "negative": 0, "neutral": 0}
-        for score, weight in zip(scores, weights):
-            final_score["positive"] += score["positive"] * weight
-            final_score["negative"] += score["negative"] * weight
-            final_score["neutral"] += score["neutral"] * weight
+        score_and_weight = zip(scores, [weights[i:i+self._tag_count] for i in range(0,len(self._preprocesssed_results)*self._tag_count,self._tag_count)])
+        for score, (pos_weight, neg_weight, neu_weight) in score_and_weight:
+            final_score["positive"] += score["positive"] * pos_weight
+            final_score["negative"] += score["negative"] * neg_weight
+            final_score["neutral"] += score["neutral"] * neu_weight
         return final_score
 
     def _classify(self, weights):
@@ -66,12 +68,15 @@ class OptimizeWeights():
     """
 
     _NUM_WORKERS = multiprocessing.cpu_count()
+    #_NUM_WORKERS = 4
     population_size = 10000 # number of agents
     selection = 0.1 # random pool size to select best parents from
     culling = 0.3 # % of population to cull and replace every generation
     mutation_rate = 0.1 # mutation rate
     mutation_delta = 0.2 # % range of mutation adjustment
-    num_weights = 2 # no of classifiers 
+    num_labels = 3
+    num_classifiers = 2
+    num_weights = num_classifiers * num_labels # no of classifiers * labels
 
     def __init__(self):
         """
@@ -93,15 +98,23 @@ class OptimizeWeights():
         """puts the work into the queue for the worker instances to consume"""
         [self._queue.put(p) for p in enumerate(population)]
 
-    def _normalize(self, weights):
-        """normalize values to 1. if all weights are 0 return 0.5 (for crossover average weighted fitness)"""
-        sum_weights = sum(map(abs, weights))
-        return [sum_weights > 0 and (float(w) / sum_weights) or 0.5 for w in weights]
+    def _normalize_fitness(self, fitness):
+        """normalize fitness"""
+        sum_fitness = sum(fitness)
+        return [sum_fitness > 0 and (float(w) / sum_fitness) or 0.5 for w in fitness]
+
+    def _normalize_weights(self, weights):
+        """normalize all weight group values to 1. if all weights are 0 return 0.5 (for crossover average weighted fitness)"""
+        # turns [1,2,3,1,2,3] to [[1,1],[2,2],[3,3]] etc and each group must be normalized to 1
+        sub_weight_groups = [[weights[x] for x in range(i,self.num_weights,self.num_labels)] for i in range(int(len(weights)/2))]
+        sum_weight_groups = [sum(map(abs, sub_weight)) for sub_weight in sub_weight_groups]
+        weights = [[sum_weights > 0 and (float(w) / sum_weights) or 0.5 for w in weights] for weights, sum_weights in zip(sub_weight_groups, sum_weight_groups)]
+        return [weight for sub_weights in [[weight[i] for weight in weights] for i in range(self.num_classifiers)] for weight in sub_weights]
 
     def _generate_weights(self):
         """generates a random vector of length num_weights that sums to 1.0"""
         weights = [random.uniform(-1, 1) for x in range(self.num_weights)]
-        return self._normalize(weights)
+        return self._normalize_weights(weights)
 
     def _seed_population(self):
         """generates the initial population"""
@@ -114,15 +127,15 @@ class OptimizeWeights():
 
     def _crossover(self, parent1, parent2):
         """average weighted crossover"""
-        fitness1, fitness2 = self._normalize([self._scores[parent1][0] - self._scores[parent1][1], self._scores[parent2][0] - self._scores[parent1][1]])
-        return self._normalize([(fitness1 * p1) + (fitness2 * p2) for p1, p2 in zip(self.population[parent1], self.population[parent2])])
+        fitness1, fitness2 = self._normalize_fitness([self._scores[parent1][0] - self._scores[parent1][1], self._scores[parent2][0] - self._scores[parent1][1]])
+        return self._normalize_weights([(fitness1 * p1) + (fitness2 * p2) for p1, p2 in zip(self.population[parent1], self.population[parent2])])
 
     def _mutate(self, offspring):
         """mutate randomly selected weight by delta and normalize"""
         weight_idx = random.choice(range(len(offspring)))
         mutation_modifier = 1 + random.uniform(-self.mutation_delta, self.mutation_delta)
         offspring[weight_idx] *= mutation_modifier
-        return self._normalize(offspring)
+        return self._normalize_weights(offspring)
 
     def _create_offspring(self):
         """create an offspring using tournament selection and average weighted crossover"""
@@ -168,4 +181,4 @@ class OptimizeWeights():
 
 if __name__ == '__main__':
     ow = OptimizeWeights()
-    ow.optimize_weights(5) 
+    ow.optimize_weights(10) 
