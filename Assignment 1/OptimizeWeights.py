@@ -27,11 +27,12 @@ class ClassifierWorker(multiprocessing.Process):
         self._results = results
         self.daemon = True
         self._tag_count = 3
-        self._preprocesssed_results = [json.load(open("dataset/NaiveBayesTweetClassifier_results.json", 'r')), \
-                                       json.load(open("dataset/AfinnTweetClassifier_results.json", 'r'))]
+        self._preprocesssed_results = [json.load(open("dataset/NaiveBayesTweetClassifier_results.json", 'r')),
+                                       json.load(open("dataset/AfinnTweetClassifier_results.json", 'r')),
+                                       json.load(open("dataset/KnnClassifier_results.json", 'r'))]
         self._tweets = Tweets.DevTweets()
 
-    def _combine_scores(self, scores, weights):
+    def _combine_scores(self, score_and_weight):
         final_score = {"positive": 0, "negative": 0, "neutral": 0}
         score_and_weight = zip(scores, [weights[i:i+self._tag_count] for i in range(0,len(self._preprocesssed_results)*self._tag_count,self._tag_count)])
         for score, (pos_weight, neg_weight, neu_weight) in score_and_weight:
@@ -75,7 +76,7 @@ class OptimizeWeights():
     mutation_rate = 0.1 # mutation rate
     mutation_delta = 0.2 # % range of mutation adjustment
     num_labels = 3
-    num_classifiers = 2
+    num_classifiers = 3
     num_weights = num_classifiers * num_labels # no of classifiers * labels
 
     def __init__(self):
@@ -106,7 +107,7 @@ class OptimizeWeights():
     def _normalize_weights(self, weights):
         """normalize all weight group values to 1. if all weights are 0 return 0.5 (for crossover average weighted fitness)"""
         # turns [1,2,3,1,2,3] to [[1,1],[2,2],[3,3]] etc and each group must be normalized to 1
-        sub_weight_groups = [[weights[x] for x in range(i,self.num_weights,self.num_labels)] for i in range(int(len(weights)/2))]
+        sub_weight_groups = [[weights[x] for x in range(i,self.num_weights,self.num_labels)] for i in range(int(len(weights)/self.num_classifiers))]
         sum_weight_groups = [sum(map(abs, sub_weight)) for sub_weight in sub_weight_groups]
         weights = [[sum_weights > 0 and (float(w) / sum_weights) or 0.5 for w in weights] for weights, sum_weights in zip(sub_weight_groups, sum_weight_groups)]
         return [weight for sub_weights in [[weight[i] for weight in weights] for i in range(self.num_classifiers)] for weight in sub_weights]

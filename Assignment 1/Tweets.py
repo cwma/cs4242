@@ -6,6 +6,7 @@ def Tweets(index_file):
 	for tweet_id, tweet in index.items():
 		raw_tweet = open("dataset/"+ tweet['text'], 'r', encoding='utf-8').read()
 		raw_tweet = json.loads(raw_tweet)
+		tweet['id'] = tweet_id
 		tweet['filename'] = tweet['text']
 		tweet['text'] = raw_tweet['text'].lower()
 		tweet['rt'] = raw_tweet['retweet_count']
