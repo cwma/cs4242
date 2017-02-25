@@ -29,7 +29,7 @@ class ClassifierWorker(multiprocessing.Process):
         self._tag_count = 3
         self._preprocesssed_results = [json.load(open("dataset/NaiveBayesTweetClassifier_results.json", 'r')),
                                        json.load(open("dataset/AfinnTweetClassifier_results.json", 'r')),
-                                       json.load(open("dataset/KnnClassifier_results.json", 'r')),
+                                       json.load(open("dataset/KnnClassifier2_results.json", 'r')),
                                        json.load(open("dataset/RFClassifier_results.json", 'r')),
                                        json.load(open("dataset/SVMClassifier_results.json", 'r'))]
         self._tweets = Tweets.DevTweets()
@@ -72,7 +72,7 @@ class OptimizeWeights():
 
     #_NUM_WORKERS = multiprocessing.cpu_count()
     _NUM_WORKERS = 4
-    population_size = 15000 # number of agents
+    population_size = 10000 # number of agents
     selection = 0.1 # random pool size to select best parents from
     culling = 0.3 # % of population to cull and replace every generation
     mutation_rate = 0.2 # mutation rate
