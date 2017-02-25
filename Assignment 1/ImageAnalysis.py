@@ -27,7 +27,13 @@ class ImageAnalysis():
 
             #image_label.append(r'./dataset/photos/' + infile)
             #captions_list.append(result['description']['captions'][0]['text'])
-            _result = { r'photos/' + infile: { "description": result['description']['captions'][0]['text'], "tags": result['description']['tags']}}
+            try:
+                _result = { r'photos/' + infile: { "description": result['description']['captions'][0]['text'], "tags": result['description']['tags']}}
+            except TypeError as e:
+                _result = { r'photos/' + infile: { "description": "", "tags": []}}
+            except KeyError as e:
+                _result = { r'photos/' + infile: { "description": "", "tags": []}}
+
             self.save_file(_result, 'dataset/vision/{0}.json'.format(infile))
 
         return captions_list, image_label
@@ -57,7 +63,12 @@ class ImageAnalysis():
                 # print(face['scores'])
                 print(emotion_list)
 
-            _result = { r'photos/' + infile: [{key: value for key, value in zip(emotion_label, emotion_sublist)} for emotion_sublist in emotion_list]}
+            try:
+                _result = { r'photos/' + infile: [{key: value for key, value in zip(emotion_label, emotion_sublist)} for emotion_sublist in emotion_list]}
+            except TypeError as e:
+                _result = { r'photos/' + infile: []}
+            except KeyError as e:
+                _result = { r'photos/' + infile: []}
             self.save_file(_result, 'dataset/emotion/{0}.json'.format(infile))
 
         return emotion_list, emotion_label
