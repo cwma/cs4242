@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import Tweets
 import json
 import os
 import re
@@ -27,24 +28,11 @@ class RFClassifier():
         self.train['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), self.train_tweets))
         self.train['sentiment'] = list(map(lambda tweet: tweet[2], self.train_tweets))
         self.train['afinn'] = self.train['text'].apply(lambda tweet: self._get_afinn_score(tweet))
+        self._model = None
 
     def _extract_tweet(self, file_path):
-        with open(file_path, 'r+') as f1:
-            index = json.loads(f1.read())
-            f1.close()
-
-        results = []
-        for filename in os.listdir(self.tweets_path):
-            if filename.endswith('.json'):
-                f2 = open(self.tweets_path + filename, 'r+', encoding='utf-8')
-                t = json.loads(f2.read())
-                try:
-                    r = (t['id_str'], t['text'], index[t['id_str']]['label'])
-                    results.append(r)
-                except Exception as e:
-                    continue
-                f2.close()
-        return results
+        tweets = Tweets.Tweets(file_path)
+        return [(tweetid, tweet['text'], tweet['label']) for (tweetid, tweet) in tweets.items()]
 
     def _remove_link(self, text):
         try:
@@ -81,8 +69,6 @@ class RFClassifier():
 
         print(metrics.classification_report(test['sentiment'], test['predict']))
         print(metrics.confusion_matrix(test['sentiment'], test['predict']))
-        print(metrics.classification_report(test['sentiment'], test['predict']))
-        print(metrics.confusion_matrix(test['sentiment'], test['predict']))
         print(metrics.accuracy_score(test['sentiment'], test['predict']))
         print(metrics.precision_score(test['sentiment'], test['predict'], average='macro'))
         print(metrics.recall_score(test['sentiment'], test['predict'], average='macro'))
@@ -96,18 +82,15 @@ class RFClassifier():
         test['text'] = [self._remove_link(tweet['text'])]
         test['sentiment'] = [tweet['label']]
         test['afinn'] = test['text'].apply(lambda tweet: self._get_afinn_score(tweet))
+        if self._model is None:
+            pipeline = Pipeline(
+                [('featurize', DataFrameMapper([('afinn', None)])), ('rf', RandomForestClassifier(n_estimators=500))])
+            X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
+            y = self.train['sentiment']
 
-        pipeline = Pipeline(
-            [('featurize', DataFrameMapper([('afinn', None)])), ('rf', RandomForestClassifier(n_estimators=500))])
-        X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
-        y = self.train['sentiment']
-
-        test['predict'] = pipeline.fit(X=X, y=y).predict(test)
-        prob = pipeline.fit(X=X, y=y).predict_proba(test)
-
-        result = {'positive': prob[0][2], 'negative': prob[0][0], 'neutral': prob[0][1]}
-
-        return result
+            self._model = pipeline.fit(X=X, y=y)
+        prob = self._model.predict_proba(test)
+        return {'positive': prob[0][2], 'negative': prob[0][0], 'neutral': prob[0][1]}
 
     def classify_export(self):
         test = self._parse_tweets()
@@ -122,8 +105,6 @@ class RFClassifier():
 
         result = [{'positive': prob[i][2], 'negative': prob[i][0], 'neutral': prob[i][1]} for i in range(len(prob))]
 
-        print(metrics.classification_report(test['sentiment'], test['predict']))
-        print(metrics.confusion_matrix(test['sentiment'], test['predict']))
         print(metrics.classification_report(test['sentiment'], test['predict']))
         print(metrics.confusion_matrix(test['sentiment'], test['predict']))
         print(metrics.accuracy_score(test['sentiment'], test['predict']))
@@ -147,4 +128,5 @@ class RFClassifier():
 
 if __name__ == "__main__":
     rf = RFClassifier()
-    prob = rf.classify_all()
+    #prob = rf.classify_all()
+    rf.classify_tweets_prob_export()

@@ -30,24 +30,11 @@ class KnnClassifier():
         self.train['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), self.train_tweets))
         self.train['sentiment'] = list(map(lambda tweet: tweet[2], self.train_tweets))
         self.train['afinn'] = self.train['text'].apply(lambda tweet: self._get_afinn_score(tweet))
+        self._model = None
 
     def _extract_tweet(self, file_path):
-        with open(file_path, 'r+') as f1:
-            index = json.loads(f1.read())
-            f1.close()
-
-        results = []
-        for filename in os.listdir(self.tweets_path):
-            if filename.endswith('.json'):
-                f2 = open(self.tweets_path + filename, 'r+', encoding='utf-8')
-                t = json.loads(f2.read())
-                try:
-                    r = (t['id_str'], t['text'], index[t['id_str']]['label'])
-                    results.append(r)
-                except Exception as e:
-                    continue
-                f2.close()
-        return results
+        tweets = Tweets.Tweets(file_path)
+        return [(tweetid, tweet['text'], tweet['label']) for (tweetid, tweet) in tweets.items()]
 
     def _remove_link(self, text):
         try:
@@ -89,14 +76,13 @@ class KnnClassifier():
         test['text'] = [self._remove_link(tweet['text'])]
         test['sentiment'] = [tweet['label']]
         test['afinn'] = test['text'].apply(lambda tweet: self._get_afinn_score(tweet))
-
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
-        X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
-        y = self.train['sentiment']
-        test['predict'] = pipeline.fit(X=X, y=y).predict(test)
-        prob = pipeline.fit(X=X, y=y).predict_proba(test)
-        result = {'positive': prob[0][2], 'negative': prob[0][0], 'neutral': prob[0][1]}
-        return result
+        if self._model is None:
+            pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
+            X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
+            y = self.train['sentiment']
+            self._model = pipeline.fit(X=X, y=y)
+        prob = self._model.predict_proba(test)
+        return {'positive': prob[0][2], 'negative': prob[0][0], 'neutral': prob[0][1]}
 
     def classify_export(self):
         test = self._parse_tweets()
