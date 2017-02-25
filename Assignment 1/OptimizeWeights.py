@@ -29,10 +29,12 @@ class ClassifierWorker(multiprocessing.Process):
         self._tag_count = 3
         self._preprocesssed_results = [json.load(open("dataset/NaiveBayesTweetClassifier_results.json", 'r')),
                                        json.load(open("dataset/AfinnTweetClassifier_results.json", 'r')),
-                                       json.load(open("dataset/KnnClassifier_results.json", 'r'))]
+                                       json.load(open("dataset/KnnClassifier_results.json", 'r')),
+                                       json.load(open("dataset/RFClassifier_results.json", 'r')),
+                                       json.load(open("dataset/SVMClassifier_results.json", 'r'))]
         self._tweets = Tweets.DevTweets()
 
-    def _combine_scores(self, score_and_weight):
+    def _combine_scores(self, scores, weights):
         final_score = {"positive": 0, "negative": 0, "neutral": 0}
         score_and_weight = zip(scores, [weights[i:i+self._tag_count] for i in range(0,len(self._preprocesssed_results)*self._tag_count,self._tag_count)])
         for score, (pos_weight, neg_weight, neu_weight) in score_and_weight:
@@ -68,15 +70,15 @@ class OptimizeWeights():
     Genetic Algorithm to optimise weights for sentiment classification
     """
 
-    _NUM_WORKERS = multiprocessing.cpu_count()
-    #_NUM_WORKERS = 4
-    population_size = 10000 # number of agents
+    #_NUM_WORKERS = multiprocessing.cpu_count()
+    _NUM_WORKERS = 4
+    population_size = 15000 # number of agents
     selection = 0.1 # random pool size to select best parents from
     culling = 0.3 # % of population to cull and replace every generation
-    mutation_rate = 0.1 # mutation rate
+    mutation_rate = 0.2 # mutation rate
     mutation_delta = 0.2 # % range of mutation adjustment
     num_labels = 3
-    num_classifiers = 3
+    num_classifiers = 5
     num_weights = num_classifiers * num_labels # no of classifiers * labels
 
     def __init__(self):
@@ -114,7 +116,7 @@ class OptimizeWeights():
 
     def _generate_weights(self):
         """generates a random vector of length num_weights that sums to 1.0"""
-        weights = [random.uniform(-1, 1) for x in range(self.num_weights)]
+        weights = [random.uniform(0, 1) for x in range(self.num_weights)]
         return self._normalize_weights(weights)
 
     def _seed_population(self):
