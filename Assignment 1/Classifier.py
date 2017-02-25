@@ -17,8 +17,6 @@ class Classifier():
         return (correct, wrong, total)
 
     def classify_tweets_prob_export(self, test_tweets=Tweets.DevTweets()):
-        import os
-        print(os.getcwd())
         export = "dataset/" + self.__class__.__name__ + "_results.json"
         tweet_results = {}
         for tweet_id, tweet in test_tweets.items():
