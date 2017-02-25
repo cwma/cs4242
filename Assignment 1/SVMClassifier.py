@@ -1,20 +1,17 @@
 #!/usr/bin/python
-import Tweets
 import json
-import nltk
 import os
-import pandas as pd
 import re
+
+import pandas as pd
 from afinn import Afinn
-from nltk.corpus import stopwords
-from nltk.tokenize import wordpunct_tokenize, word_tokenize
 from sklearn import metrics
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
+from sklearn.svm import SVC
 from sklearn_pandas import DataFrameMapper
 
 
-class KnnClassifier():
+class SVMClassifier():
     def __init__(self):
         self.training_path = "dataset/training.json"
         self.dev_path = "dataset/development.json"
@@ -73,14 +70,22 @@ class KnnClassifier():
 
     def classify_all(self):
         test = self._parse_tweets()
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
+
+        pipeline = Pipeline(
+            [('featurize', DataFrameMapper([('afinn', None)])), ('svm', SVC(kernel='rbf', probability=True))])
         X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
         y = self.train['sentiment']
+
         test['predict'] = pipeline.fit(X=X, y=y).predict(test)
         prob = pipeline.fit(X=X, y=y).predict_proba(test)
+
         result = [{'positive': prob[i][2], 'negative': prob[i][0], 'neutral': prob[i][1]} for i in range(len(prob))]
         print(metrics.classification_report(test['sentiment'], test['predict']))
         print(metrics.confusion_matrix(test['sentiment'], test['predict']))
+        print(metrics.accuracy_score(test['sentiment'], test['predict']))
+        print(metrics.precision_score(test['sentiment'], test['predict'], average='macro'))
+        print(metrics.recall_score(test['sentiment'], test['predict'], average='macro'))
+        print(metrics.f1_score(test['sentiment'], test['predict'], average='macro'))
         return result
 
     def classify_prob(self, tweet):
@@ -90,24 +95,37 @@ class KnnClassifier():
         test['sentiment'] = [tweet['label']]
         test['afinn'] = test['text'].apply(lambda tweet: self._get_afinn_score(tweet))
 
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
+        pipeline = Pipeline(
+            [('featurize', DataFrameMapper([('afinn', None)])), ('svm', SVC(kernel='rbf', probability=True))])
         X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
         y = self.train['sentiment']
+
         test['predict'] = pipeline.fit(X=X, y=y).predict(test)
         prob = pipeline.fit(X=X, y=y).predict_proba(test)
         result = {'positive': prob[0][2], 'negative': prob[0][0], 'neutral': prob[0][1]}
+
         return result
 
     def classify_export(self):
         test = self._parse_tweets()
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
+
+        pipeline = Pipeline(
+            [('featurize', DataFrameMapper([('afinn', None)])), ('svm', SVC(kernel='rbf', probability=True))])
         X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
         y = self.train['sentiment']
+
         test['predict'] = pipeline.fit(X=X, y=y).predict(test)
         prob = pipeline.fit(X=X, y=y).predict_proba(test)
+
         result = [{'positive': prob[i][2], 'negative': prob[i][0], 'neutral': prob[i][1]} for i in range(len(prob))]
+
         print(metrics.classification_report(test['sentiment'], test['predict']))
         print(metrics.confusion_matrix(test['sentiment'], test['predict']))
+        print(metrics.accuracy_score(test['sentiment'], test['predict']))
+        print(metrics.precision_score(test['sentiment'], test['predict'], average='macro'))
+        print(metrics.recall_score(test['sentiment'], test['predict'], average='macro'))
+        print(metrics.f1_score(test['sentiment'], test['predict'], average='macro'))
+
         return result, test
 
     def classify_tweets_prob_export(self):
@@ -121,6 +139,5 @@ class KnnClassifier():
 
 
 if __name__ == "__main__":
-    knn = KnnClassifier()
-    prob = knn.classify_all()
-    # knn.classify_tweets_prob_export()
+    svm = SVMClassifier()
+    prob = svm.classify_all()
