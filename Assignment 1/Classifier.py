@@ -8,7 +8,6 @@ class Classifier():
         for tweet_id, tweet in test_tweets.items():
             total += 1
             result = self.classify(tweet)
-            print(self.classify_prob(tweet))
             actual = tweet['label']
             if result == actual:
                 correct += 1
