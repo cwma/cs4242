@@ -5,6 +5,7 @@ import Tweets
 from sklearn import metrics
 from AfinnClassifier import AfinnTweetClassifier
 from KnnClassifier import KnnClassifier
+from KnnClassifier_v2 import KnnClassifier2
 from NaiveBayesClassifier import NaiveBayesTweetClassifier
 from RandomForestClassifier import RFClassifier
 from SVMClassifier import SVMClassifier
@@ -19,9 +20,8 @@ class SentimentClassifier():
                 0.16259719819330132, 0.195022295088288, 0.040773068557682646,   # Random Forest
                 0.0982928640006226, 0.051477733463735596, 0.012433135604914351] # Support Vector Machine
     #           Positive            Negative              Neutral
-
-    _CLASSIFIERS = [NaiveBayesTweetClassifier, AfinnTweetClassifier, KnnClassifier, RFClassifier, SVMClassifier]
-
+    _CLASSIFIERS = [NaiveBayesTweetClassifier, AfinnTweetClassifier, KnnClassifier2, RFClassifier, SVMClassifier]
+    
     def __init__(self):
         self._classifiers = []
         for classifier in self._CLASSIFIERS:
@@ -86,5 +86,5 @@ class SentimentClassifier():
 
 if __name__ == '__main__':
     sc = SentimentClassifier()
-    results = sc.classify_tweets()
+    results = sc.classify_tweets(Tweets.TestTweets())
     # sc.classify_tweets_export()
