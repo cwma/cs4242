@@ -37,7 +37,7 @@ class ComputerVision():
             response = requests.request('post', self._url, data=image_data, headers=headers, params=params)
 
             if response.status_code == 429:
-                print("Message: %s" % (response.json()['error']['message']))
+                print("Message: %s" % (response.json()))
 
                 if retries <= max_retries:
                     time.sleep(1)
