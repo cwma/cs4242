@@ -1,6 +1,17 @@
+import os
 import json
 
 cache = {}
+
+def getImageVision(photo_path):
+    filename = os.path.basename(photo_path)
+    vision_info = json.load(open('dataset/vision/{0}.json'.format(filename), 'r'))
+    return vision_info[photo_path]
+
+def getImageEmotion(photo_path):
+    filename = os.path.basename(photo_path)
+    emotion_info = json.load(open('dataset/emotion/{0}.json'.format(filename), 'r'))
+    return emotion_info[photo_path]
 
 def Tweets(index_file):
     if index_file in cache:
@@ -20,6 +31,8 @@ def Tweets(index_file):
             tweet['followers'] = raw_tweet['user']['followers_count']
             tweet['userid'] = raw_tweet['user']['id']
             tweets[tweet_id] = tweet
+            #tweet['vision'] = getImageVision(tweet['photo'])
+            #tweet['emotion'] = getImageEmotion(tweet['photo'])
         cache[index_file] = tweets
         return tweets
 
@@ -37,4 +50,6 @@ def DevTweets():
 
 
 if __name__ == '__main__':
-    t = Tweets('dataset/testing.json')
+    #t = Tweets('dataset/testing.json')
+    print(getImageVision("photos/-8Bw1E6LG3W54KbE.jpg"))
+    print(getImageEmotion("photos/2TdIGGd9HeUcFR6i.jpg"))
