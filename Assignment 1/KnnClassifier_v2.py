@@ -11,36 +11,66 @@ import nltk
 import pandas as pd
 import string
 from collections import Counter
-from ttp import ttp
+import Tweets
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn import metrics
 from sklearn_pandas import DataFrameMapper
 from sklearn.pipeline import Pipeline
 
-class KnnClassifier():
+class KnnClassifier2():
     
     def __init__(self):
+        self.training_path = "dataset/training.json"
+        self.dev_path = "dataset/development.json"
+        self.neg_words_path = "dataset/lexicon/neg.txt"
+        self.pos_words_path = "dataset/lexicon/pos.txt"
+        self.tweets_path = "dataset/tweets/"
         self._test = {}
+        self._load_words()
+        self.train_tweets = self._extract_tweet(self.training_path)
+        self.test_tweets = self._extract_tweet(self.dev_path)
         
-    def _extract_tweet(self, file_path):
-        with open(file_path, 'r+') as f1:
-            index = json.loads(f1.read())
-            f1.close()
-    
-        results = []
-        for filename in os.listdir(tweets_path):
-            if filename.endswith('.json'):
-                f2 = open(tweets_path + filename, 'r+', encoding='utf-8')
-                t = json.loads(f2.read())
-                try:
-                    r = (t['id_str'],t['text'],index[t['id_str']]['label'])
-                    results.append(r)
-                except Exception as e:
-                    continue
-                f2.close()
-        return results
+        self.train = pd.DataFrame()
+        self.train['tweet_id'] = list(map(lambda tweet: tweet[0], self.train_tweets))
+        self.train['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), self.train_tweets))
+        self.train['sentiment'] = list(map(lambda tweet: tweet[2], self.train_tweets))
+        self.train['tokens'] = list(map(lambda tweet: self._Preprocess(tweet[2]), self.train_tweets))
+        self.train['neg_count'] = self.train['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
+        self.train['pos_count'] = self.train['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))
+        self.train['afinn'] = self.train['text'].apply(lambda text: self._get_afinn_score(text))  
+        self._model = None
 
+    def _load_words(self):
+        pos_file = open(self.pos_words_path, encoding='utf-8')
+        neg_file = open(self.neg_words_path, encoding='utf-8')
+        pos = [line.strip('\n') for line in pos_file.readlines()]
+        neg = [line.strip('\n') for line in neg_file.readlines()]
+        self.poswords = pos
+        self.negwords = neg
+
+    def _extract_tweet(self, file_path):
+        tweets = Tweets.Tweets(file_path)
+        return [(tweetid, tweet['text'], tweet['label']) for (tweetid, tweet) in tweets.items()]
+    
+    def _get_afinn_score(self, text):
+        afinn = Afinn(emoticons=True)
+        return afinn.score(text)
+    
+    def _get_NegativeScore(self, tokens):
+        count = 0
+        for word in tokens:
+            if word in self.negwords:
+                count = count + 1
+        return count
+    
+    def _getPositiveScore(self, tokens):
+        count = 0
+        for word in tokens:
+            if word in self.poswords:
+                count = count + 1
+        return count     
+    
     def _remove_link(self, text):
         try:
             regex = r'https?://[^\s<>"]+|www\.[^\s<>"]+'
@@ -48,59 +78,7 @@ class KnnClassifier():
             return r
         except:
             return ''
-    
-    def _get_afinn_score(self, text):
-        afinn = Afinn(emoticons=True)
-        return afinn.score(text)
-    
-    def _getNegativeWords(self):
-        negwords = []
-        f = open(neg_words_path, 'r+', encoding='utf-8')
-        line = f.readline().strip('\n')    
-        while line:
-            negwords.append(line)
-            line = f.readline().strip('\n')
-        f.close()
-        return negwords
-    
-    def _getPositiveWords(self):
-        poswords = []
-        f = open(pos_words_path, 'r+', encoding='utf-8')
-        line = f.readline().strip('\n')    
-        while line:
-            poswords.append(line)
-            line = f.readline().strip('\n')
-        f.close()
-        return poswords
-    
-    def _get_NegativeScore(self, tokens):
-        count = 0
-        negwords = []
-        f = open(neg_words_path, 'r+', encoding='utf-8')
-        line = f.readline().strip('\n')    
-        while line:
-            negwords.append(line)
-            line = f.readline().strip('\n')
-        f.close()
-        for word in tokens:
-            if word in negwords:
-                count = count + 1
-        return count
-    
-    def _getPositiveScore(self, tokens):
-        count = 0
-        poswords = []
-        f = open(pos_words_path, 'r+', encoding='utf-8')
-        line = f.readline().strip('\n')    
-        while line:
-            poswords.append(line)
-            line = f.readline().strip('\n')
-        f.close()
-        for word in tokens:
-            if word in poswords:
-                count = count + 1
-        return count     
-    
+
     def _Preprocess(self, tweet):
         # Remove links
         regex = r'https?://[^\s<>"]+|www\.[^\s<>"]+'
@@ -119,49 +97,54 @@ class KnnClassifier():
         return tokens
     
     def _parse_tweets(self):
-        train_tweets = []
-        test_tweets = []
-        train_tweets = self._extract_tweet(training_path)
-        test_tweets = self._extract_tweet(dev_path)
-        
-        train = pd.DataFrame()
-        train['tweet_id'] = list(map(lambda tweet: tweet[0], train_tweets))
-        train['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), train_tweets))
-        train['sentiment'] = list(map(lambda tweet: tweet[2], train_tweets))
-        #train['afinn'] = train['text'].apply(lambda tweet: self._get_afinn_score(tweet))
-        train['tokens'] = list(map(lambda tweet: self._Preprocess(tweet[2]), train_tweets))
-        train['neg_count'] = train['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
-        train['pos_count'] = train['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))        
-    
+        test_tweets = self._extract_tweet(self.dev_path)
         test = pd.DataFrame()
         test['tweet_id'] = list(map(lambda tweet: tweet[0], test_tweets))
         test['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), test_tweets))
         test['sentiment'] = list(map(lambda tweet: tweet[2], test_tweets))
-        #test['afinn'] = test['text'].apply(lambda tweet: self._get_afinn_score(tweet))
-        test['tokens'] = list(map(lambda tweet: self._Preprocess(tweet[2]), test_tweets))
+        test['tokens'] = list(map(lambda tweet: self._Preprocess(tweet[1]), test_tweets))
         test['neg_count'] = test['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
         test['pos_count'] = test['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))          
-        
-        return train, test
+        test['afinn'] = test['text'].apply(lambda text: self._get_afinn_score(text))  
+        return test
     
-    def classify(self):
-        train, test = self._parse_tweets()
-        #pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None), ('neg_count', None), ('pos_count', None)])), ('knn', KNeighborsClassifier())])
-        pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None)])), ('knn', KNeighborsClassifier())])
-        X = train[train.columns.drop(['sentiment', 'tweet_id', 'text'])]
-        y = train['sentiment']
+    def classify_all(self):
+        test = self._parse_tweets()
+        pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None), ('afinn', None)])), ('knn', KNeighborsClassifier())])
+        #pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None)])), ('knn', KNeighborsClassifier())])
+        X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
+        y = self.train['sentiment']
         test['predict'] = pipeline.fit(X = X, y = y).predict(test)
         prob = pipeline.fit(X = X, y = y).predict_proba(test)
         result = [{'positive':prob[i][2], 'negative':prob[i][0], 'neutral':prob[i][1]} for i in range(len(prob))]
         print(metrics.classification_report(test['sentiment'], test['predict']))
         print(metrics.confusion_matrix(test['sentiment'], test['predict']))
         return result
-    
+
+    def classify_prob(self, tweet):
+        test = pd.DataFrame()
+        test['tweet_id'] = [tweet['id']]
+        test['text'] = [self._remove_link(tweet['text'])]
+        test['sentiment'] = [tweet['label']]
+        test['tokens'] = [self._Preprocess(tweet['text'])]
+        test['neg_count'] = test['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
+        test['pos_count'] = test['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))   
+        test['afinn'] = test['text'].apply(lambda text: self._get_afinn_score(text))  
+        if self._model is None:
+            pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None), ('afinn', None)])), ('knn', KNeighborsClassifier())])
+            #pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None)])), ('knn', KNeighborsClassifier())])
+            X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
+            y = self.train['sentiment']
+            self._model = pipeline.fit(X=X, y=y)
+        prob = self._model.predict_proba(test)
+        return {'positive': prob[0][2], 'negative': prob[0][0], 'neutral': prob[0][1]}
+           
     def classify_export(self):
-        train, test = self._parse_tweets()
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
-        X = train[train.columns.drop(['sentiment', 'tweet_id', 'text'])]
-        y = train['sentiment']
+        test = self._parse_tweets()
+        pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None), ('afinn', None)])), ('knn', KNeighborsClassifier())])
+        #pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None)])), ('knn', KNeighborsClassifier())])
+        X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]
+        y = self.train['sentiment']
         test['predict'] = pipeline.fit(X = X, y = y).predict(test)
         prob = pipeline.fit(X = X, y = y).predict_proba(test)
         result = [{'positive':prob[i][2], 'negative':prob[i][0], 'neutral':prob[i][1]} for i in range(len(prob))]
@@ -180,14 +163,9 @@ class KnnClassifier():
 
 if __name__ == "__main__":
 
-    training_path = "/Users/jasonngchangwei/Documents/social_media/assignment1/training.json"
-    dev_path = "/Users/jasonngchangwei/Documents/social_media/assignment1/development.json"
-    neg_words_path = "/Users/jasonngchangwei/Documents/social_media/assignment1/lexicon/neg.txt"
-    pos_words_path = "/Users/jasonngchangwei/Documents/social_media/assignment1/lexicon/pos.txt"
-    tweets_path = "/Users/jasonngchangwei/Documents/social_media/assignment1/tweets/"    
-    knn = KnnClassifier()
-    prob = knn.classify()
-    #knn.classify_tweets_prob_export()
+    knn = KnnClassifier2()
+    #prob = knn.classify_all()
+    knn.classify_tweets_prob_export()
 
     
 
