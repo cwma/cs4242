@@ -2,6 +2,7 @@ import json
 import operator
 
 import Tweets
+from sklearn import metrics
 from AfinnClassifier import AfinnTweetClassifier
 from KnnClassifier import KnnClassifier
 from NaiveBayesClassifier import NaiveBayesTweetClassifier
@@ -10,13 +11,14 @@ from SVMClassifier import SVMClassifier
 
 
 class SentimentClassifier():
+
     _TAG_COUNT = 3
-    # _WEIGHTS = [0.7130202393652626, 0.5637485303341669, 0.36388186000539446,  		# Naive Bayes
-    # 			0.2264637344711908, 0.04715857334284706, 0.6079813396761198,  		# simple Afinn text scoring
-    # 			-0.06051602616354658, 0.38909289632298605, 0.028136800318485772] 	# knn
-    _WEIGHTS = [0.7130202393652626, 0.5637485303341669, 0.36388186000539446,  # Naive Bayes
-                0.2264637344711908, 0.04715857334284706, 0.6079813396761198,  # simple Afinn text scoring
-                -0.06051602616354658, 0.38909289632298605, 0.028136800318485772]  # knn
+    _WEIGHTS = [0.27540605773653415, 0.40103550689709005, 0.4664623775567014,   # Naive Bayes
+                0.29870883549711025, 0.09131176566838402, 0.3654255947842784,   # Afinn text count
+                0.16499504457243164, 0.22070883907894973, 0.11490582349642328,  # K-Nearest Neighbours
+                0.16259719819330132, 0.195022295088288, 0.040773068557682646,   # Random Forest
+                0.0982928640006226, 0.051477733463735596, 0.012433135604914351] # Support Vector Machine
+    #           Positive            Negative              Neutral
 
     _CLASSIFIERS = [NaiveBayesTweetClassifier, AfinnTweetClassifier, KnnClassifier, RFClassifier, SVMClassifier]
 
@@ -43,6 +45,9 @@ class SentimentClassifier():
                 final_score[key] += value
         return final_score
 
+    def _metrics(self, results):
+        print(metrics.classification_report(results['actual'], results['prediction']))
+
     def classify(self, tweet):
         results = []
         # tldr combines [a,b,c] and [1,2,3,4,5,6,7,8,9] to [(a, (1,2,3)), (b,(4,5,6)), (c,(7,8,9))]
@@ -58,6 +63,7 @@ class SentimentClassifier():
 
     def classify_tweets(self, test_tweets=Tweets.DevTweets()):
         correct, wrong, total = (0, 0, 0)
+        results = {"prediction": [], "actual": []}
         for tweet_id, tweet in test_tweets.items():
             total += 1
             result = self.classify(tweet)
@@ -66,7 +72,9 @@ class SentimentClassifier():
                 correct += 1
             else:
                 wrong += 1
-        return (correct, wrong, total)
+            results["prediction"].append(result)
+            results["actual"].append(actual)
+        self._metrics(results)
 
     def classify_tweets_export(self, test_tweets=Tweets.TestTweets(), export="testing_online_prediction.json"):
         tweet_results = {}
@@ -76,10 +84,7 @@ class SentimentClassifier():
         export_file = open(export, 'w')
         export_file.write(json.dumps(tweet_results))
 
-
 if __name__ == '__main__':
     sc = SentimentClassifier()
     results = sc.classify_tweets()
-    print("Correct: {0}, Wrong: {1}, Total: {2}".format(*results))
-    print("Percentage: {0}".format(results[0] / results[2]))
     # sc.classify_tweets_export()
