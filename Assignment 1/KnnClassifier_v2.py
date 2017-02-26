@@ -3,10 +3,8 @@
 import json
 import re
 import os
-from afinn import Afinn
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords 
-from nltk.tokenize import wordpunct_tokenize, word_tokenize
 import nltk
 import pandas as pd
 import string
@@ -38,7 +36,7 @@ class KnnClassifier2():
         self.train['tokens'] = list(map(lambda tweet: self._Preprocess(tweet[2]), self.train_tweets))
         self.train['neg_count'] = self.train['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
         self.train['pos_count'] = self.train['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))
-        self.train['afinn'] = self.train['text'].apply(lambda text: self._get_afinn_score(text))  
+        self.train['afinn'] = list(map(lambda tweet: tweet[3], self.train_tweets))
         self._model = None
 
     def _load_words(self):
@@ -51,11 +49,7 @@ class KnnClassifier2():
 
     def _extract_tweet(self, file_path):
         tweets = Tweets.Tweets(file_path)
-        return [(tweetid, tweet['text'], tweet['label']) for (tweetid, tweet) in tweets.items()]
-    
-    def _get_afinn_score(self, text):
-        afinn = Afinn(emoticons=True)
-        return afinn.score(text)
+        return [(tweetid, tweet['text'], tweet['label'], tweet['afinn']) for (tweetid, tweet) in tweets.items()]
     
     def _get_NegativeScore(self, tokens):
         count = 0
@@ -105,7 +99,7 @@ class KnnClassifier2():
         test['tokens'] = list(map(lambda tweet: self._Preprocess(tweet[1]), test_tweets))
         test['neg_count'] = test['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
         test['pos_count'] = test['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))          
-        test['afinn'] = test['text'].apply(lambda text: self._get_afinn_score(text))  
+        test['afinn'] = list(map(lambda tweet: tweet[3], test_tweets))
         return test
     
     def classify_all(self):
@@ -129,7 +123,7 @@ class KnnClassifier2():
         test['tokens'] = [self._Preprocess(tweet['text'])]
         test['neg_count'] = test['tokens'].apply(lambda tokens: self._get_NegativeScore(tokens))
         test['pos_count'] = test['tokens'].apply(lambda tokens: self._getPositiveScore(tokens))   
-        test['afinn'] = test['text'].apply(lambda text: self._get_afinn_score(text))  
+        test['afinn'] = tweet['afinn']
         if self._model is None:
             pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None), ('afinn', None)])), ('knn', KNeighborsClassifier())])
             #pipeline = Pipeline([('featurize', DataFrameMapper([('neg_count', None), ('pos_count', None)])), ('knn', KNeighborsClassifier())])
@@ -164,8 +158,8 @@ class KnnClassifier2():
 if __name__ == "__main__":
 
     knn = KnnClassifier2()
-    prob = knn.classify_all()
-    #knn.classify_tweets_prob_export()
+    #prob = knn.classify_all()
+    knn.classify_tweets_prob_export()
     #              precision    recall  f1-score   support
 
     #    negative       0.63      0.89      0.74        95

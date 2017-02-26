@@ -5,7 +5,6 @@ import nltk
 import os
 import pandas as pd
 import re
-from afinn import Afinn
 from nltk.corpus import stopwords
 from nltk.tokenize import wordpunct_tokenize, word_tokenize
 from sklearn import metrics
@@ -29,12 +28,12 @@ class KnnClassifier():
         self.train['tweet_id'] = list(map(lambda tweet: tweet[0], self.train_tweets))
         self.train['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), self.train_tweets))
         self.train['sentiment'] = list(map(lambda tweet: tweet[2], self.train_tweets))
-        self.train['afinn'] = self.train['text'].apply(lambda tweet: self._get_afinn_score(tweet))
+        self.train['afinn'] = list(map(lambda tweet: tweet[3], self.train_tweets))
         self._model = None
 
     def _extract_tweet(self, file_path):
         tweets = Tweets.Tweets(file_path)
-        return [(tweetid, tweet['text'], tweet['label']) for (tweetid, tweet) in tweets.items()]
+        return [(tweetid, tweet['text'], tweet['label'], tweet['afinn']) for (tweetid, tweet) in tweets.items()]
 
     def _remove_link(self, text):
         try:
@@ -44,10 +43,6 @@ class KnnClassifier():
         except:
             return ''
 
-    def _get_afinn_score(self, text):
-        afinn = Afinn(emoticons=True)
-        return afinn.score(text)
-
     def _parse_tweets(self):
         test_tweets = self._extract_tweet(self.dev_path)
 
@@ -55,7 +50,7 @@ class KnnClassifier():
         test['tweet_id'] = list(map(lambda tweet: tweet[0], test_tweets))
         test['text'] = list(map(lambda tweet: self._remove_link(tweet[1]), test_tweets))
         test['sentiment'] = list(map(lambda tweet: tweet[2], test_tweets))
-        test['afinn'] = test['text'].apply(lambda tweet: self._get_afinn_score(tweet))
+        test['afinn'] = list(map(lambda tweet: tweet[3], test_tweets))
         return test
 
     def classify_all(self):
@@ -75,7 +70,7 @@ class KnnClassifier():
         test['tweet_id'] = [tweet['id']]
         test['text'] = [self._remove_link(tweet['text'])]
         test['sentiment'] = [tweet['label']]
-        test['afinn'] = test['text'].apply(lambda tweet: self._get_afinn_score(tweet))
+        test['afinn'] = [tweet['afinn']]
         if self._model is None:
             pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None)])), ('knn', KNeighborsClassifier())])
             X = self.train[self.train.columns.drop(['sentiment', 'tweet_id', 'text'])]

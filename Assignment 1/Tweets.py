@@ -1,5 +1,6 @@
 import os
 import json
+from afinn import Afinn
 
 cache = {}
 
@@ -14,6 +15,7 @@ def getImageEmotion(photo_path):
     return emotion_info[photo_path]
 
 def Tweets(index_file):
+    afinn = Afinn(emoticons=True)
     if index_file in cache:
         return cache[index_file]
     else:
@@ -32,6 +34,7 @@ def Tweets(index_file):
             tweet['userid'] = raw_tweet['user']['id']
             tweets[tweet_id] = tweet
             tweet['vision'] = getImageVision(tweet['photo'])
+            tweet['afinn'] = afinn.score(tweet['text'])
             #tweet['emotion'] = getImageEmotion(tweet['photo'])
         cache[index_file] = tweets
         return tweets
