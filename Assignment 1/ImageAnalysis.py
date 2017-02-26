@@ -1,5 +1,6 @@
 import os
 import json
+import time
 
 from CognitiveServices import ComputerVision, Emotion
 
@@ -55,17 +56,24 @@ class ImageAnalysis():
                 with open(r'./dataset/photos/' + infile, 'rb') as image_file:
                     data = image_file.read()
 
-                result = emotion.recognize_image(data)
-                print(result)
+                while 1:
+                    result = emotion.recognize_image(data)
+                    print(result)
+                    if 'error' in result and 'RateLimitExceeded' == result['error']['code']:
+                        time.sleep(3)
+                    else:
+                        break
+
 
                 for face in result:
-                    emotion_list.append(
-                        [face['scores']['anger'], face['scores']['contempt'], face['scores']['disgust'],
-                         face['scores']['fear'],
-                         face['scores']['happiness'], face['scores']['neutral'], face['scores']['sadness'],
-                         face['scores']['surprise']])
-                    # print(face['scores'])
-                    print(emotion_list)
+                    if 'error' not in face:
+                        emotion_list.append(
+                            [face['scores']['anger'], face['scores']['contempt'], face['scores']['disgust'],
+                             face['scores']['fear'],
+                             face['scores']['happiness'], face['scores']['neutral'], face['scores']['sadness'],
+                             face['scores']['surprise']])
+                        # print(face['scores'])
+                        # print(emotion_list)
 
                 try:
                     _result = { r'photos/' + infile: [{key: value for key, value in zip(emotion_label, emotion_sublist)} for emotion_sublist in emotion_list]}
