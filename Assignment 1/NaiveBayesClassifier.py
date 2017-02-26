@@ -9,7 +9,7 @@ import json
 
 class NaiveBayesTweetClassifier(Classifier):
 
-	def __init__(self, negation=False, rt_count=True, fav_count=True, desc_feat=False, user_feat=True, follow_count=True, bigrams=False):
+	def __init__(self, negation=False, rt_count=True, fav_count=True, desc_feat=False, user_feat=True, follow_count=True, bigrams=False, vision=False):
 		self._tknzr = TweetTokenizer(strip_handles=True)
 		self._tweets = Tweets.TrainTweets()
 		self._negation = negation
@@ -18,13 +18,14 @@ class NaiveBayesTweetClassifier(Classifier):
 		self._desc_feat = desc_feat
 		self._user_feat = user_feat
 		self._follow_count = follow_count
+		self._vision_feat = vision
 		self._bigrams = bigrams
 		self._stopwords = stopwords.words('english')
 		self._stemmer = PorterStemmer()
 		self._train()
 
-	def _tokenize(self, tweet):
-		return [self._stemmer.stem(token) for token in self._tknzr.tokenize(tweet['text']) if token not in self._stopwords]
+	def _tokenize(self, tweet_text):
+		return [self._stemmer.stem(token) for token in self._tknzr.tokenize(tweet_text) if token not in self._stopwords]
 
 	def _mark_negation(self, tweet_tokens):
 		return sentiment_utils.mark_negation(tweet_tokens)
@@ -50,8 +51,15 @@ class NaiveBayesTweetClassifier(Classifier):
 		return "follower(zero)" if followers is 0 else "follower(low)" if followers < 200 \
 		else "follower(med)" if followers < 500 else "follower(high)"
 
+	def _image_vision_features(self, tweet):
+		desc_feats = self._tokenize(tweet['vision']['description'])
+		tag_feats = tweet['vision']['tags']
+		feats = {"vision_tag({0})".format(token): True for token in tag_feats}
+		feats.update({"vision_desc({0})".format(token): True for token in desc_feats})
+		return feats
+
 	def _extract_features(self, tweet):
-		tweet_tokens = self._tokenize(tweet)
+		tweet_tokens = self._tokenize(tweet['text'])
 		if self._negation:
 			tweet_tokens = self._mark_negation(tweet_tokens)
 		if self._bigrams:
@@ -68,6 +76,8 @@ class NaiveBayesTweetClassifier(Classifier):
 			features[self._user_feature(tweet)] = True
 		if self._follow_count:
 			features[self._follower_count_feature(tweet)] = True
+		if self._vision_feat:
+			features.update(self._image_vision_features(tweet))
 		return features
 
 	def _train(self):
@@ -90,7 +100,12 @@ class NaiveBayesTweetClassifier(Classifier):
 if __name__ == '__main__':
 
 	nb = NaiveBayesTweetClassifier()
-	# results = nb.classify_tweets()
-	# print("Correct: {0}, Wrong: {1}, Total: {2}".format(*results))
-	# print("Percentage: {0}".format(results[0] / results[2]))
-	nb.classify_tweets_prob_export()
+	results = nb.classify_tweets()
+	#nb.classify_tweets_prob_export()
+	#              precision    recall  f1-score   support
+
+	#    negative       0.67      0.87      0.76       285
+	#     neutral       0.75      0.50      0.60       474
+	#    positive       0.81      0.89      0.85       720
+
+	# avg / total       0.76      0.76      0.75      1479

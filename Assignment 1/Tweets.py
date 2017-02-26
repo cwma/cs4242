@@ -31,7 +31,7 @@ def Tweets(index_file):
             tweet['followers'] = raw_tweet['user']['followers_count']
             tweet['userid'] = raw_tweet['user']['id']
             tweets[tweet_id] = tweet
-            #tweet['vision'] = getImageVision(tweet['photo'])
+            tweet['vision'] = getImageVision(tweet['photo'])
             #tweet['emotion'] = getImageEmotion(tweet['photo'])
         cache[index_file] = tweets
         return tweets

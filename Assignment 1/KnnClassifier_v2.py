@@ -164,9 +164,15 @@ class KnnClassifier2():
 if __name__ == "__main__":
 
     knn = KnnClassifier2()
-    #prob = knn.classify_all()
-    knn.classify_tweets_prob_export()
+    prob = knn.classify_all()
+    #knn.classify_tweets_prob_export()
+    #              precision    recall  f1-score   support
 
+    #    negative       0.63      0.89      0.74        95
+    #     neutral       0.68      0.49      0.57       158
+    #    positive       0.85      0.87      0.86       240
+
+    # avg / total       0.75      0.75      0.74       493
     
 
 

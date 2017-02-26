@@ -44,7 +44,12 @@ class AfinnTweetClassifier(Classifier):
 if __name__ == '__main__':
 
 	af = AfinnTweetClassifier()
-	# results = af.classify_tweets()
-	# print("Correct: {0}, Wrong: {1}, Total: {2}".format(*results))
-	# print("Percentage: {0}".format(results[0] / results[2]))
-	af.classify_tweets_prob_export()
+	results = af.classify_tweets()
+	# af.classify_tweets_prob_export()
+	#              precision    recall  f1-score   support
+
+	#    negative       0.65      0.92      0.76       285
+	#     neutral       0.70      0.51      0.59       474
+	#    positive       0.85      0.86      0.85       720
+
+	# avg / total       0.76      0.76      0.75      1479

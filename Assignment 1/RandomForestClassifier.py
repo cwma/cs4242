@@ -130,3 +130,10 @@ if __name__ == "__main__":
     rf = RFClassifier()
     #prob = rf.classify_all()
     rf.classify_tweets_prob_export()
+    #              precision    recall  f1-score   support
+
+    #    negative       0.66      0.81      0.73        95
+    #     neutral       0.64      0.54      0.58       158
+    #    positive       0.84      0.85      0.84       240
+
+    # avg / total       0.74      0.74      0.74       493

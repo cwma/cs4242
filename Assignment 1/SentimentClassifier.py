@@ -8,20 +8,23 @@ from KnnClassifier import KnnClassifier
 from KnnClassifier_v2 import KnnClassifier2
 from NaiveBayesClassifier import NaiveBayesTweetClassifier
 from RandomForestClassifier import RFClassifier
+from NaiveBayesImageClassifier import NaiveBayesImageClassifier
 from SVMClassifier import SVMClassifier
 
 
 class SentimentClassifier():
 
     _TAG_COUNT = 3
-    _WEIGHTS = [0.27540605773653415, 0.40103550689709005, 0.4664623775567014,   # Naive Bayes
-                0.29870883549711025, 0.09131176566838402, 0.3654255947842784,   # Afinn text count
-                0.16499504457243164, 0.22070883907894973, 0.11490582349642328,  # K-Nearest Neighbours
-                0.16259719819330132, 0.195022295088288, 0.040773068557682646,   # Random Forest
-                0.0982928640006226, 0.051477733463735596, 0.012433135604914351] # Support Vector Machine
-    #           Positive            Negative              Neutral
-    _CLASSIFIERS = [NaiveBayesTweetClassifier, AfinnTweetClassifier, KnnClassifier2, RFClassifier, SVMClassifier]
-    
+                #      Positive            Negative              Neutral
+    _WEIGHTS = [0.21052403668384623, 0.3532195357238242, 0.36431434614209679,     # Naive Bayes
+                0.15185261109972592, 0.065680111586002232, 0.22519304816816038,   # Afinn text count
+                0.16145236935404356, 0.17113904683180287, 0.17595262849843762,    # K-Nearest Neighbours  
+                0.090646693927382241, 0.094282696845565186, 0.070369178842033198, # Random Forest
+                0.088422387032625671, 0.12550730043363162, 0.083583114106813294,  # Support Vector Machine
+                0.29710190190237651, 0.19017130857917397, 0.13637946165276033]    # Naive Bayes Image Vision
+                #      Positive            Negative              Neutral
+    _CLASSIFIERS = [NaiveBayesTweetClassifier, AfinnTweetClassifier, KnnClassifier2, RFClassifier, SVMClassifier, NaiveBayesImageClassifier]
+
     def __init__(self):
         self._classifiers = []
         for classifier in self._CLASSIFIERS:
@@ -88,3 +91,10 @@ if __name__ == '__main__':
     sc = SentimentClassifier()
     results = sc.classify_tweets(Tweets.TestTweets())
     # sc.classify_tweets_export()
+    #                  precision    recall  f1-score   support
+
+    #    negative       0.78      0.90      0.84       285
+    #     neutral       0.76      0.67      0.71       474
+    #    positive       0.86      0.88      0.87       720
+
+    # avg / total       0.81      0.82      0.81      1479
