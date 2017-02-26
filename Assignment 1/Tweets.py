@@ -48,6 +48,13 @@ def TestTweets():
 def DevTweets():
     return Tweets('dataset/development.json')
 
+def InputPrompt():
+    while 1:
+        filename = input("Please enter filename to import (dataset directory): ")
+        if os.path.exists("dataset/{0}".format(filename)):
+            return Tweets("dataset/{0}".format(filename))
+        else:
+            print("File does not exist!")
 
 if __name__ == '__main__':
     #t = Tweets('dataset/testing.json')

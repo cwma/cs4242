@@ -81,15 +81,32 @@ class SentimentClassifier():
 
     def classify_tweets_export(self, test_tweets=Tweets.TestTweets(), export="testing_online_prediction.json"):
         tweet_results = {}
+        results = {"prediction": [], "actual": []}
         for tweet_id, tweet in test_tweets.items():
             result = self.classify(tweet)
+            actual = tweet['label']
             tweet_results[tweet_id] = {"photo": tweet["photo"], "text": tweet["filename"], "predicted_label": result}
+            results["prediction"].append(result)
+            results["actual"].append(actual)
         export_file = open(export, 'w')
         export_file.write(json.dumps(tweet_results))
+        self._metrics(results)
 
 if __name__ == '__main__':
     sc = SentimentClassifier()
-    results = sc.classify_tweets(Tweets.TestTweets())
+    sc.classify_tweets_export(test_tweets=Tweets.InputPrompt())
+    # results = sc.classify_tweets(Tweets.DevTweets())
+
+    #              precision    recall  f1-score   support
+
+    #    negative       0.77      0.88      0.82        95
+    #     neutral       0.75      0.68      0.71       158
+    #    positive       0.86      0.87      0.87       240
+
+    # avg / total       0.81      0.81      0.81       493
+
+    # results = sc.classify_tweets(Tweets.TestTweets())
+
     # sc.classify_tweets_export()
     #                  precision    recall  f1-score   support
 
