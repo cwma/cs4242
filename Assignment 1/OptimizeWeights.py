@@ -12,6 +12,7 @@ import Tweets
 import operator
 from collections import Counter
 from queue import Queue
+from sklearn import metrics
 
 class ClassifierWorker(multiprocessing.Process):
     """
@@ -31,7 +32,8 @@ class ClassifierWorker(multiprocessing.Process):
                                        json.load(open("dataset/AfinnTweetClassifier_results.json", 'r')),
                                        json.load(open("dataset/KnnClassifier2_results.json", 'r')),
                                        json.load(open("dataset/RFClassifier_results.json", 'r')),
-                                       json.load(open("dataset/SVMClassifier_results.json", 'r'))]
+                                       json.load(open("dataset/SVMClassifier_results.json", 'r')),
+                                       json.load(open("dataset/NaiveBayesImageClassifier_results.json", 'r'))]
         self._tweets = Tweets.DevTweets()
 
     def _combine_scores(self, scores, weights):
@@ -44,18 +46,15 @@ class ClassifierWorker(multiprocessing.Process):
         return final_score
 
     def _classify(self, weights):
-        pos, neg = (0, 0)
+        results = {"prediction": [], "actual": []}
         for tweetid, tweet in self._tweets.items():
             scores = [results[tweetid] for results in self._preprocesssed_results]
             final_score = self._combine_scores(scores, weights)
             final_score = sorted(final_score.items(), key=operator.itemgetter(1))
             result = final_score[-1][0]
-            if result == tweet['label']:
-                pos += 1
-            else:
-                neg += 1
-
-        return (pos, neg)
+            results["prediction"].append(result)
+            results["actual"].append(tweet['label'])
+        return metrics.f1_score(results['actual'], results['prediction'], average='macro')
 
     def run(self):
         """run method"""
@@ -76,9 +75,9 @@ class OptimizeWeights():
     selection = 0.1 # random pool size to select best parents from
     culling = 0.3 # % of population to cull and replace every generation
     mutation_rate = 0.2 # mutation rate
-    mutation_delta = 0.2 # % range of mutation adjustment
+    mutation_delta = 0.5 # % range of mutation adjustment
     num_labels = 3
-    num_classifiers = 5
+    num_classifiers = 6
     num_weights = num_classifiers * num_labels # no of classifiers * labels
 
     def __init__(self):
@@ -126,11 +125,11 @@ class OptimizeWeights():
     def _select_parents(self):
         """tournament selection"""
         random_selection = random.sample(range(self.population_size), int(self.population_size * 0.1))
-        return sorted(random_selection, key=lambda s: (self._scores.get(s)[0], self._scores.get(s)[1]), reverse=True)[:2]
+        return sorted(random_selection, key=lambda s: self._scores.get(s), reverse=True)[:2]
 
     def _crossover(self, parent1, parent2):
         """average weighted crossover"""
-        fitness1, fitness2 = self._normalize_fitness([self._scores[parent1][0] - self._scores[parent1][1], self._scores[parent2][0] - self._scores[parent1][1]])
+        fitness1, fitness2 = self._normalize_fitness([self._scores[parent1], self._scores[parent2]])
         return self._normalize_weights([(fitness1 * p1) + (fitness2 * p2) for p1, p2 in zip(self.population[parent1], self.population[parent2])])
 
     def _mutate(self, offspring):
@@ -158,8 +157,8 @@ class OptimizeWeights():
         """prints top 10 weights"""
         top10 = ranks[self.population_size-10:]
         for idx in top10[::-1]:
-            print("Pos: %s, Neg: %s, Weights: %s" % (self._scores[idx][0], self._scores[idx][1], self.population[idx]))
-        print("Population Average Pos: %.1f, Neg: %.1f" % (self._total_pos / float(self.population_size), self._total_neg / float(self.population_size)))
+            print("F1: %s, Weights: %s" % (self._scores[idx], self.population[idx]))
+        print("Population Average F1: %s" % (self._pop_f1 / float(self.population_size)))
 
     def optimize_weights(self, generations):
         """
@@ -168,17 +167,15 @@ class OptimizeWeights():
         """
         for gen in range(generations):
             print(" Generation: %s" % gen)
-            self._total_pos = 0
-            self._total_neg = 0
+            self._pop_f1 = 0
             self._queue_search(self.population)
             self._queue.join()
             self._scores = {}
             while not self._results.empty():
-                (index, (pos, neg)) = self._results.get()
-                self._scores[index] = (pos, neg)
-                self._total_pos += pos
-                self._total_neg += neg
-            ranks = sorted(range(self.population_size), key=lambda s: (self._scores.get(s)[0], self._scores.get(s)[1]))
+                (index, f1) = self._results.get()
+                self._scores[index] = f1
+                self._pop_f1 += f1
+            ranks = sorted(range(self.population_size), key=lambda s: (self._scores.get(s)))
             self._report(ranks)
             self._next_generation(ranks)
 
