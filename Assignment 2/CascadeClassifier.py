@@ -4,15 +4,18 @@ import operator
 import Tweet
 from sklearn import metrics
 from NaiveBayesClassifier import NaiveBayesCascadeClassifier
+from RandomForestClassifier import RandomForestCascadeClassifier
+from SVMClassifier import SvmCascadeClassifier
 
 
 class CascadeClassifier():
 
     _TAG_COUNT = 2
                 #      Positive            Negative
-    _WEIGHTS = [0.50000000000000000, 0.50000000000000000,    
-                0.50000000000000000, 0.50000000000000000]
-    _CLASSIFIERS = [NaiveBayesCascadeClassifier, NaiveBayesCascadeClassifier]
+    _WEIGHTS =  [0.12861802170161366, 0.12140421035625287,  # NB
+                 0.62336862034816054, 0.5553469495249701,   # RFC
+                 0.24801335795022589, 0.32324884011877697]  # SVM
+    _CLASSIFIERS = [NaiveBayesCascadeClassifier, RandomForestCascadeClassifier, SvmCascadeClassifier]
 
     def __init__(self, train_dataset, k):
         self._classifiers = []
@@ -76,3 +79,10 @@ if __name__ == '__main__':
     train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
     cc = CascadeClassifier(train_dataset, 4)
     cc.classify_tweets_export(test_dataset)
+
+#              precision    recall  f1-score   support
+
+#    negative       0.84      0.93      0.88      1022
+#    positive       0.78      0.57      0.66       421
+
+# avg / total       0.82      0.83      0.82      1443
