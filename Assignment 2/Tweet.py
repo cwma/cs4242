@@ -1,80 +1,86 @@
 import json
+import os
 
-class Dataset():
-
-    def __init__(self, dataset_path, dataset_root_path, k):
-        self.k = k
-        with open(dataset_path, 'r') as f:
-            data = json.load(f)
-        f.close()
-        self.data = data
-        self.iter = data.__iter__()
-        with open(dataset_root_path, 'r') as f:
-            root = json.load(f)
-        f.close()
-        self.root = root
-        with open('social_network.json', 'r') as f:
-            social = json.load(f)
-        f.close()
-        self.social = social
-
-    def __iter__(self):
-        return self
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, key):
-        val = self.data[key]
-        return self.__process_item(val, key)
-
-    def __next__(self):
-        try:
-            key = self.iter.__next__()
-            val = self.data[key]
-            return self.__process_item(key, val)
-        except StopIteration:
-            raise StopIteration
-
-    def __process_item(self, key, cascade):
+def _get_data(data, root, social, k):
+    results = []
+    for key in data.keys():
+        cascade = data[key]
         for ckey in cascade.keys():
             inner = cascade[ckey]
             # uncomment if you need the followee id's as well
             try:
-                #inner["user_followees"] = self.social[inner["user"]]
-                inner["user_followees_count"] = len(self.social[inner["user"]])
+                #inner["user_followees"] = social[inner["user"]]
+                inner["user_followees_count"] = len(social[inner["user"]])
             except KeyError:
                 #inner["user_followees"] = []
                 inner["user_followees_count"] = 0
         result = {"url": key, "cascade": cascade}
         result["cascade_length"] = len(cascade)
-        result["cascade_root"] = self.__cascade_root(cascade)
-        result["root_tweet_id"] = self.root[key]
-        result["root_tweet"] = self.__get_tweet(self.root[key])
-        result["label"] = result["cascade_length"] >= 2*self.k
-        return result
+        result["cascade_root"] = _cascade_root(cascade)
+        result["root_tweet_id"] = root[key]
+        result["root_tweet"] = _get_tweet(root[key])
+        result["label"] = result["cascade_length"] >= 2*k
+        results.append(result)
+    return results
 
-    def __cascade_root(self, cascade):
-        tweets = cascade.keys()
-        return str(sorted(map(int, tweets))[0])
+def _cascade_root(cascade):
+    tweets = cascade.keys()
+    return str(sorted(map(int, tweets))[0])
 
-    def __get_tweet(self, tweetid):
-        with open('tweets/'+tweetid+'.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+def _get_tweet(tweetid):
+    with open('tweets/'+tweetid+'.json', 'r', encoding='utf-8') as f:
+        return json.load(f)
 
-def get_flattened_data(dataset_path, dataset_root_path, k):
-    dataset = []
-    for data in Dataset(dataset_path, dataset_root_path, k):
-        dataset.append(data)
-    return dataset
+def get_flattened_data(train_dataset_path, test_dataset_path, dataset_root_path, k):
+
+    save_name_train = "dataset/k" + str(k) + os.path.basename(train_dataset_path)
+    save_name_test = "dataset/k" + str(k) + os.path.basename(test_dataset_path)
+
+    if not os.path.isfile(save_name_train) and not os.path.isfile(save_name_test):
+        with open(train_dataset_path, 'r') as f:
+            train_data = json.load(f)
+        f.close()
+        with open(test_dataset_path, 'r') as f:
+            test_data = json.load(f)
+        f.close()
+        with open(dataset_root_path, 'r') as f:
+            root = json.load(f)
+        f.close()
+        with open('social_network.json', 'r') as f:
+            social = json.load(f)
+        f.close()
+
+    if not os.path.isfile(save_name_train):
+        processed_train_data = _get_data(train_data, root, social, k)
+        with open(save_name_train, "w") as f:
+            f.write(json.dumps(processed_train_data))
+        f.close()
+    else:
+        with open(save_name_train, 'r') as f:
+            processed_train_data = json.load(f)
+        f.close()
+
+    if not os.path.isfile(save_name_test):
+        processed_test_data = _get_data(test_data, root, social, k)
+        with open(save_name_test, "w") as f:
+            f.write(json.dumps(processed_test_data))
+        f.close()
+    else:
+        with open(save_name_test, 'r') as f:
+            processed_test_data = json.load(f)
+        f.close()
+
+    return processed_train_data, processed_test_data
 
 if __name__ == "__main__":
+
+    pass
     
     # Assumes this script is in the root folder, with dataset and tweets folder from assignment2 handout
     # and social_network.json is in the root folder 
     #
     # import Tweet
-    # dataset = Tweet.get_flattened_data('dataset/k2/training.json', 'dataset/k2/root_tweet.json', 2)
+    # train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k2/training.json', 'dataset/k2/testing.json', 'dataset/k2/root_tweet.json', 2)
     #
     # dataset then contains an array of dicts with the following format
     # {
@@ -143,7 +149,7 @@ if __name__ == "__main__":
     #             "entities":{
     #                 "description":{
     #                     "urls":[
-
+    #
     #                     ]
     #                 }
     #             },
@@ -171,17 +177,18 @@ if __name__ == "__main__":
     #         "in_reply_to_user_id":None,
     #         "entities":{
     #             "urls":[
-
+    #
     #             ],
     #             "symbols":[
-
+    #
     #             ],
     #             "hashtags":[
-
+    #
     #             ],
     #             "user_mentions":[
-
+    #
     #             ]
     #         }
     #     }
     # }
+    #
