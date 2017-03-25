@@ -140,7 +140,7 @@ class SvmCascadeClassifier():
             features = {}
 
         features[self._tweet_length_feature(cascade)] = True
-        features[self._users_retweet_feature(cascade)] = True
+        #features[self._users_retweet_feature(cascade)] = True
 
         if self._user_followers:
             features[self._user_followers_feature(cascade)] = True
