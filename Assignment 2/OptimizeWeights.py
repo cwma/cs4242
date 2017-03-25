@@ -1,8 +1,3 @@
-"""
-
-
-"""
-
 import subprocess
 import sys
 import random
@@ -25,7 +20,8 @@ class ClassifierWorker(multiprocessing.Process):
         self.daemon = True
         self._tag_count = 2
         self._preprocesssed_results = [json.load(open("dataset/NaiveBayesCascadeClassifier_results.json", 'r')),
-                                       json.load(open("dataset/NaiveBayesCascadeClassifier_results.json", 'r'))]
+                                       json.load(open("dataset/RandomForestCascadeClassifier_results.json", 'r')),
+                                       json.load(open("dataset/SvmCascadeClassifier_results.json", 'r'))]
         self._cascades = test_dataset
 
     def _combine_scores(self, scores, weights):
@@ -60,7 +56,7 @@ class ClassifierWorker(multiprocessing.Process):
 
 class OptimizeWeights():
     """
-    Genetic Algorithm to optimise weights for sentiment classification
+    Genetic Algorithm to optimise weights for Cascade classification
     """
 
     #_NUM_WORKERS = multiprocessing.cpu_count()
@@ -71,7 +67,7 @@ class OptimizeWeights():
     mutation_rate = 0.2 # mutation rate
     mutation_delta = 0.5 # % range of mutation adjustment
     num_labels = 2
-    num_classifiers = 2
+    num_classifiers = 3
     num_weights = num_classifiers * num_labels # no of classifiers * labels
 
     def __init__(self):
@@ -138,7 +134,7 @@ class OptimizeWeights():
         parents = self._select_parents()
         offspring = self._crossover(*parents)
         if (random.uniform(0, 1) < self.mutation_rate):
-            self._mutate(offspring)
+            offspring = self._mutate(offspring)
         return offspring
         
     def _next_generation(self, ranks):
