@@ -5,6 +5,7 @@ def _get_data(data, root, social, k):
     results = []
     for key in data.keys():
         cascade = data[key]
+        cascade = {c:cascade[c] for c in cascade.keys() if c is not "predicted_label"}
         for ckey in cascade.keys():
             inner = cascade[ckey]
             # uncomment if you need the followee id's as well
