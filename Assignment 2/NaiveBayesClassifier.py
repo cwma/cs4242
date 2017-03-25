@@ -9,7 +9,7 @@ import numpy
 import json
 import os
 
-class NaiveBayesTweetClassifier():
+class NaiveBayesCascadeClassifier():
 
     def __init__(self, dataset, k, user_followers=True, users_reachable=True, average_time=True, time_to_k=True):
         self.k = k
@@ -136,23 +136,19 @@ class NaiveBayesTweetClassifier():
         train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
         self._classifier = NaiveBayesClassifier.train(train_set)
 
-    def _normalize(self, result):
-        scores = float(sum([result.prob('positive'), result.prob('negative'), result.prob('neutral')]))
-        return {"positive": result.prob('positive') / scores, "negative": result.prob("negative") / scores, "neutral": result.prob("neutral") / scores}
-
     def classify(self, cascade):
         features = self._extract_features(cascade)
         return self._classifier.classify(features)
 
-    def classify_prob(self, tweet):
-        features = self._extract_features(tweet)
+    def classify_prob(self, cascade):
+        features = self._extract_features(cascade)
         result = self._classifier.prob_classify(features)
-        return self._normalize(result)
+        return {"positive": result.prob(True), "negative": result.prob(False)}
 
     def _metrics(self, results):
         print(metrics.classification_report(results['actual'], results['prediction']))
 
-    def classify_tweets(self, test_dataset):
+    def classify_cascades(self, test_dataset):
         results = {"prediction": [], "actual": []}
         for cascade in test_dataset:
             result = self.classify(cascade)
@@ -166,24 +162,23 @@ class NaiveBayesTweetClassifier():
         print("Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._time), numpy.median(self._time), numpy.std(self._time)))
         self._classifier.show_most_informative_features(10)
 
-    def classify_tweets_prob_export(self, dataset_path, dataset_root_path):
-        test_cascade = Tweet.get_flattened_data(dataset_path, dataset_root_path, self.k)
+    def classify_cascades_prob_export(self, test_dataset):
         export = "dataset/" + self.__class__.__name__ + "_results.json"
-        tweet_results = {}
-        for tweet_id, tweet in test_tweets.items():
-            result = self.classify_prob(tweet)
-            tweet_results[tweet_id] = result
+        results = {}
+        for cascade in test_dataset:
+            results[cascade['url']] = self.classify_prob(cascade)
         export_file = open(export, 'w')
-        export_file.write(json.dumps(tweet_results))
+        export_file.write(json.dumps(results))
 
 if __name__ == '__main__':
 
-    train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k2/training.json', 'dataset/k2/testing.json', 'dataset/k2/root_tweet.json', 2)
+    #train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k2/training.json', 'dataset/k2/testing.json', 'dataset/k2/root_tweet.json', 2)
 
-    #train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
+    train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
 
-    nb = NaiveBayesTweetClassifier(train_dataset, 2)
-    results = nb.classify_tweets(test_dataset)
+    nb = NaiveBayesCascadeClassifier(train_dataset, 2)
+    #results = nb.classify_cascades(test_dataset)
+    nb.classify_cascades_prob_export(test_dataset)
 
 #       k = 2
 #              precision    recall  f1-score   support
