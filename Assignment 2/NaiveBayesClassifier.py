@@ -4,6 +4,7 @@ import nltk.sentiment.util as sentiment_utils
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
 from sklearn import metrics
+import pickle
 import Tweet
 import numpy
 import json
@@ -21,6 +22,7 @@ class NaiveBayesCascadeClassifier():
         self._time_to_k = time_to_k
         self._stopwords = stopwords.words('english')
         self._stemmer = PorterStemmer()
+        self._t_length = []
         self._f_count = []
         self._r_count = []
         self._avg = []
@@ -37,6 +39,7 @@ class NaiveBayesCascadeClassifier():
 
     def _tweet_length_feature(self, cascade):
         length = len(cascade['root_tweet']['text'])
+        self._t_length.append(length)
         if length > 10:
             return "length(short)"
         elif length > 40:
@@ -133,8 +136,18 @@ class NaiveBayesCascadeClassifier():
         return features
 
     def _train(self):
-        train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
-        self._classifier = NaiveBayesClassifier.train(train_set)
+        pickle_filename = "{0}.pickle".format(self.__class__.__name__)
+        if os.path.isfile(pickle_filename):
+            with open(pickle_filename, "rb") as classifier_f:
+                self._classifier = pickle.load(classifier_f)
+            classifier_f.close()
+        else:
+            train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
+            self._classifier = NaiveBayesClassifier.train(train_set)
+
+            with open(pickle_filename, "wb") as save_classifier:
+                pickle.dump(self._classifier, save_classifier)
+            save_classifier.close()
 
     def classify(self, cascade):
         features = self._extract_features(cascade)
@@ -156,10 +169,11 @@ class NaiveBayesCascadeClassifier():
             results["prediction"].append(result)
             results["actual"].append(actual)
         self._metrics(results)
-        print("Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._f_count), numpy.median(self._f_count), numpy.std(self._f_count)))
-        print("Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._r_count), numpy.median(self._r_count), numpy.std(self._r_count)))
-        print("Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._avg), numpy.median(self._avg), numpy.std(self._avg)))
-        print("Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._time), numpy.median(self._time), numpy.std(self._time)))
+        print("Tweet Length: Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._t_length), numpy.median(self._t_length), numpy.std(self._t_length)))
+        print("root Followers: Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._f_count), numpy.median(self._f_count), numpy.std(self._f_count)))
+        print("Reachable subgraphs: Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._r_count), numpy.median(self._r_count), numpy.std(self._r_count)))
+        print("Average time between tweets: Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._avg), numpy.median(self._avg), numpy.std(self._avg)))
+        print("Time to kth tweet: Average: {0}, Median: {1}, Std: {2}".format(numpy.average(self._time), numpy.median(self._time), numpy.std(self._time)))
         self._classifier.show_most_informative_features(10)
 
     def classify_cascades_prob_export(self, test_dataset):
@@ -177,8 +191,8 @@ if __name__ == '__main__':
     train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
 
     nb = NaiveBayesCascadeClassifier(train_dataset, 2)
-    #results = nb.classify_cascades(test_dataset)
-    nb.classify_cascades_prob_export(test_dataset)
+    results = nb.classify_cascades(test_dataset)
+    #nb.classify_cascades_prob_export(test_dataset)
 
 #       k = 2
 #              precision    recall  f1-score   support

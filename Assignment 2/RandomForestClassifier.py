@@ -9,7 +9,8 @@ from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
 
 import Tweet
-
+import pickle
+import os
 
 class RandomForestCascadeClassifier():
     def __init__(self, dataset, k, user_followers=True, users_reachable=True, average_time=True, time_to_k=True):
@@ -97,11 +98,21 @@ class RandomForestCascadeClassifier():
         return features
 
     def _train(self):
-        train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
-        # pipeline = Pipeline([('tfidf', TfidfTransformer()),
-        #                      ('chi2', SelectKBest(chi2, k=1000)),
-        #                      ('rf', RandomForestClassifier(n_estimators=500))])
-        self._classifier = SklearnClassifier(RandomForestClassifier(n_estimators=500), sparse=False).train(train_set)
+        pickle_filename = "{0}.pickle".format(self.__class__.__name__)
+        if os.path.isfile(pickle_filename):
+            with open(pickle_filename, "rb") as classifier_f:
+                self._classifier = pickle.load(classifier_f)
+            classifier_f.close()
+        else:
+            train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
+            # pipeline = Pipeline([('tfidf', TfidfTransformer()),
+            #                      ('chi2', SelectKBest(chi2, k=1000)),
+            #                      ('rf', RandomForestClassifier(n_estimators=500))])
+            self._classifier = SklearnClassifier(RandomForestClassifier(n_estimators=500), sparse=False).train(train_set)
+
+            with open(pickle_filename, "wb") as save_classifier:
+                pickle.dump(self._classifier, save_classifier)
+            save_classifier.close()
 
     def classify(self, cascade):
         features = self._extract_features(cascade)
@@ -153,3 +164,10 @@ if __name__ == '__main__':
     rf = RandomForestCascadeClassifier(train_x, 2)
     results = rf.classify_cascades(test_y)
     rf.classify_cascades_prob_export(test_y)
+
+#              precision    recall  f1-score   support
+
+#       False       0.81      0.94      0.87      1022
+#        True       0.77      0.47      0.58       421
+
+# avg / total       0.80      0.80      0.79      1443
