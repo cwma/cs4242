@@ -9,6 +9,10 @@ from nltk.stem.porter import PorterStemmer
 from nltk.tokenize import TweetTokenizer
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
+from sklearn.pipeline import Pipeline
 
 import Tweet
 
@@ -106,11 +110,10 @@ class RandomForestCascadeClassifier():
             classifier_f.close()
         else:
             train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
-            # pipeline = Pipeline([('tfidf', TfidfTransformer()),
-            #                      ('chi2', SelectKBest(chi2, k=1000)),
-            #                      ('rf', RandomForestClassifier(n_estimators=500))])
-            self._classifier = SklearnClassifier(
-                RandomForestClassifier(n_estimators=1000), sparse=False).train(train_set)
+            pipeline = Pipeline([('tfidf', TfidfTransformer()),
+                                 ('chi2', SelectKBest(chi2, k=1000)),
+                                 ('rf', RandomForestClassifier(n_estimators=1000))])
+            self._classifier = SklearnClassifier(pipeline, sparse=False).train(train_set)
 
             with open(pickle_filename, "wb") as save_classifier:
                 pickle.dump(self._classifier, save_classifier)
@@ -170,7 +173,7 @@ if __name__ == '__main__':
 
     #              precision    recall  f1-score   support
 
-    #       False       0.81      0.94      0.87      1022
-    #        True       0.76      0.46      0.58       421
+    #       False       0.82      0.92      0.87      1022
+    #        True       0.72      0.52      0.60       421
 
-    # avg / total       0.80      0.80      0.78      1443
+    # avg / total       0.79      0.80      0.79      1443
