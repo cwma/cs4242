@@ -167,7 +167,7 @@ if __name__ == '__main__':
     train_x, test_y = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json',
                                                'dataset/k4/root_tweet.json', 4)
 
-    rf = RandomForestCascadeClassifier(train_x, 2)
+    rf = RandomForestCascadeClassifier(train_x, 4)
     results = rf.classify_cascades(test_y)
     rf.classify_cascades_prob_export(test_y)
 

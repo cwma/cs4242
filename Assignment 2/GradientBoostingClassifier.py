@@ -9,10 +9,6 @@ from nltk.stem.porter import PorterStemmer
 from nltk.tokenize import TweetTokenizer
 from sklearn import metrics
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.feature_selection import SelectKBest
-from sklearn.feature_selection import chi2
-from sklearn.pipeline import Pipeline
 
 import Tweet
 
@@ -110,10 +106,8 @@ class GradientBoostingCascadeClassifier():
             classifier_f.close()
         else:
             train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
-            pipeline = Pipeline([('tfidf', TfidfTransformer()),
-                                 ('chi2', SelectKBest(chi2, k=1000)),
-                                 ('gbc', GradientBoostingClassifier(n_estimators=1000))])
-            self._classifier = SklearnClassifier(pipeline, sparse=False).train(train_set)
+            gbc_clf = GradientBoostingClassifier(n_estimators=1000)
+            self._classifier = SklearnClassifier(gbc_clf, sparse=False).train(train_set)
 
             with open(pickle_filename, "wb") as save_classifier:
                 pickle.dump(self._classifier, save_classifier)
@@ -167,7 +161,7 @@ if __name__ == '__main__':
     train_x, test_y = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json',
                                                'dataset/k4/root_tweet.json', 4)
 
-    gbc = GradientBoostingCascadeClassifier(train_x, 2)
+    gbc = GradientBoostingCascadeClassifier(train_x, 4)
     results = gbc.classify_cascades(test_y)
     gbc.classify_cascades_prob_export(test_y)
 

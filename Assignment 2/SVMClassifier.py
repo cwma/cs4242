@@ -166,7 +166,7 @@ if __name__ == '__main__':
     train_x, test_y = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json',
                                                'dataset/k4/root_tweet.json', 4)
 
-    svm = SvmCascadeClassifier(train_x, 2)
+    svm = SvmCascadeClassifier(train_x, 4)
     results = svm.classify_cascades(test_y)
     svm.classify_cascades_prob_export(test_y)
 
