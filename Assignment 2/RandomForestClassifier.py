@@ -110,7 +110,7 @@ class RandomForestCascadeClassifier():
             #                      ('chi2', SelectKBest(chi2, k=1000)),
             #                      ('rf', RandomForestClassifier(n_estimators=500))])
             self._classifier = SklearnClassifier(
-                RandomForestClassifier(n_estimators=1000, max_depth=32, random_state=12), sparse=False).train(train_set)
+                RandomForestClassifier(n_estimators=1000), sparse=False).train(train_set)
 
             with open(pickle_filename, "wb") as save_classifier:
                 pickle.dump(self._classifier, save_classifier)
@@ -171,6 +171,6 @@ if __name__ == '__main__':
     #              precision    recall  f1-score   support
 
     #       False       0.81      0.94      0.87      1022
-    #        True       0.77      0.47      0.58       421
+    #        True       0.76      0.46      0.58       421
 
-    # avg / total       0.80      0.80      0.79      1443
+    # avg / total       0.80      0.80      0.78      1443
