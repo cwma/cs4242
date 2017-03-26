@@ -1,4 +1,6 @@
 import json
+import os
+import pickle
 
 import numpy
 from nltk.classify import SklearnClassifier
@@ -9,8 +11,6 @@ from sklearn import metrics
 from sklearn.svm import SVC
 
 import Tweet
-import os
-import pickle
 
 
 class SvmCascadeClassifier():
@@ -42,97 +42,37 @@ class SvmCascadeClassifier():
 
     def _tweet_length_feature(self, cascade):
         length = len(cascade['root_tweet']['text'])
-
-        if length > 10:
-            return "length(short)"
-        elif length > 40:
-            return "length(med)"
-        elif length > 70:
-            return "length(long)"
-        elif length > 100:
-            return "length(vlong)"
-        elif length == 140:
-            return "length(max)"
+        return int(length)
 
     def _user_followers_feature(self, cascade):
         followers = cascade['root_tweet']['user']['followers_count']
         self._f_count.append(followers)
-
-        if followers < 100:
-            return "follower(vlow)"
-        elif followers < 500:
-            return "follower(low)"
-        elif followers < 1000:
-            return "follower(med)"
-        elif followers < 10000:
-            return "follower(high)"
-        else:
-            return "follower(vhigh)"
+        return int(followers)
 
     def _users_reachable_feature(self, nodes):
         reachable = 0
         for kth, node in zip(range(self.k + 1), nodes):
             reachable += node[1]['user_followees_count']
         self._r_count.append(reachable)
-
-        if reachable == 0:
-            return "reachable(zero)"
-        elif reachable < 50:
-            return "reachable(low)"
-        elif reachable < 100:
-            return "reachable(med)"
-        elif reachable < 250:
-            return "reachable(high)"
-        else:
-            return "reachable(vhigh)"
+        return int(reachable)
 
     def _average_time_feature(self, nodes):
         timestamp = [int(node[1]['created_at']) for kth, node in zip(range(self.k + 1), nodes)]
         average = (sum(numpy.diff(timestamp)) / float(len(timestamp))) / 1000
         self._avg.append(average)
-
-        if average < 60 * 10:
-            return "average(low)"
-        elif average < 60 * 10:
-            return "average(med)"
-        elif average < 60 * 100:
-            return "average(high)"
-        elif average < 60 * 1000:
-            return "average(vhigh)"
-        else:
-            return "average(vvhigh)"
+        return int(average)
 
     def _users_retweet_feature(self, cascade):
         retweets = cascade['root_tweet']['retweet_count']
         self._rt_count.append(retweets)
-
-        if retweets < 100:
-            return "follower(vlow)"
-        elif retweets < 500:
-            return "follower(low)"
-        elif retweets < 1000:
-            return "follower(med)"
-        elif retweets < 10000:
-            return "follower(high)"
-        else:
-            return "follower(vhigh)"
+        return int(retweets)
 
     def _time_to_k_feature(self, nodes):
         first = int(nodes[0][1]['created_at'])
         kth = int(list(zip(range(self.k + 1), nodes))[-1][1][1]['created_at'])
         diff = (kth - first) / 1000
         self._time.append(diff)
-
-        if diff < 60 * 1:
-            return "timetok(low)"
-        elif diff < 60 * 10:
-            return "timetok(med)"
-        elif diff < 60 * 100:
-            return "timetok(high)"
-        elif diff < 60 * 1000:
-            return "timetok(vhigh)"
-        else:
-            return "timetok(vvhigh)"
+        return int(diff)
 
     def _extract_features(self, cascade):
         if cascade['root_tweet']['lang'] == 'en':
@@ -142,7 +82,7 @@ class SvmCascadeClassifier():
             features = {}
 
         features[self._tweet_length_feature(cascade)] = True
-        #features[self._users_retweet_feature(cascade)] = True
+        # features[self._users_retweet_feature(cascade)] = True
 
         if self._user_followers:
             features[self._user_followers_feature(cascade)] = True
@@ -174,7 +114,6 @@ class SvmCascadeClassifier():
             with open(pickle_filename, "wb") as save_classifier:
                 pickle.dump(self._classifier, save_classifier)
             save_classifier.close()
-
 
     def classify(self, cascade):
         features = self._extract_features(cascade)
@@ -227,9 +166,9 @@ if __name__ == '__main__':
     results = svm.classify_cascades(test_y)
     svm.classify_cascades_prob_export(test_y)
 
-#              precision    recall  f1-score   support
+    #              precision    recall  f1-score   support
 
-#       False       0.83      0.82      0.82      1022
-#        True       0.57      0.59      0.58       421
+    #       False       0.83      0.82      0.82      1022
+    #        True       0.57      0.59      0.58       421
 
-# avg / total       0.75      0.75      0.75      1443
+    # avg / total       0.75      0.75      0.75      1443
