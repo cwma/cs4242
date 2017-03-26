@@ -81,20 +81,20 @@ class SvmCascadeClassifier():
         else:
             features = {}
 
-        features[self._tweet_length_feature(cascade)] = True
-        # features[self._users_retweet_feature(cascade)] = True
+        features['tweet_length'] = self._tweet_length_feature(cascade)
+        # features['rtweet'] = self._users_retweet_feature(cascade)
 
         if self._user_followers:
-            features[self._user_followers_feature(cascade)] = True
+            features["user_followers"] = self._user_followers_feature(cascade)
 
         cascade_nodes = self._sorted_cascade_nodes(cascade)
 
         if self._users_reachable:
-            features[self._users_reachable_feature(cascade_nodes)] = True
+            features['reachable'] = self._users_reachable_feature(cascade_nodes)
         if self._average_time:
-            features[self._average_time_feature(cascade_nodes)] = True
+            features['average'] = self._average_time_feature(cascade_nodes)
         if self._time_to_k:
-            features[self._time_to_k_feature(cascade_nodes)] = True
+            features['timetok'] = self._time_to_k_feature(cascade_nodes)
 
         return features
 
