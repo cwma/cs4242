@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import pickle
 import json
 import re
 import os
@@ -23,144 +24,118 @@ from sklearn.pipeline import Pipeline
 
 class KnnClassifier():
     
-    def __init__(self, trainset, testset, k):
+    def __init__(self, trainset, k):
         self.k = k
-        self.root_path = "dataset/k4/root_tweet.json"
-        self.network_path = "social_network.json"
-        self.content_path = "tweets/"
-        self.tw_info = self._load_data(self.root_path)
-        self.social_network = self._load_data(self.network_path)
         self.train_tweets = trainset
-        self.test_tweets = testset
-        self.train = self._train()
-    
+
     # Return the integer id of the root of the cascade (because 1 sometimes may be missing)
     def _sort_cascade(self, cascade):
         tweets = cascade.keys()
-        return sorted(map(int, tweets))   
-    
+        return sorted(map(int, tweets)) 
+
     # Extract only the first k tweets in the cascade
     def _load_tweets(self, data, k):
-        output = {}
+        output = []
         for entry in data:
             cascade = entry['cascade']
             sort = self._sort_cascade(cascade)
-            output.update({entry['url']: {str(sort[0]):cascade[str(sort[0])]} })
-            for i in range(1,k):
-                output[entry['url']][str(sort[i])] = cascade[str(sort[i])]
+            output.append({str(sort[i]):cascade[str(sort[i])] for i in range(0, k > len(cascade) and len(cascade) or k)})
         return output
-    
-    # Extract only the first k tweets in the cascade
-    def _load_cascade(self, data, k):
-        output = {}
-        cascade = data['cascade']
-        sort = self._sort_cascade(cascade)
-        output.update({data['url']: {str(sort[0]):cascade[str(sort[0])]} })
-        for i in range(1,k):
-            output[data['url']][str(sort[i])] = cascade[str(sort[i])]
-        return output    
-    
+        
     def _extract_urls(self, data):
-        urls = []
-        for url in data.keys():
-            urls.append(url)
-        return urls    
+        return [item['url'] for item in data]
     
     # Get the label viral/non-viral (True or False) for a cascade.
-    def _get_label(self, url, data):
-        for entry in data:
-            if url in entry['url']:
-                return entry['label']
+    def _get_label(self, data):
+        return [d['label'] for d in data]
     
-    def _extract_afinn(self, url):
-        tw_id = self.tw_info[url]
-        with open(self.content_path + tw_id + '.json', 'r') as f:
-            tw_content = json.load(f)
+    def _extract_afinn(self, data):
+        results = []
+        for item in data:
+            tw_content = item['root_tweet']
             if 'en' in tw_content['lang'] and not None:
                 afinn = Afinn(emoticons=True)
                 text = ' '.join(map(str, self._Preprocess(tw_content['text'])))
-                return afinn.score(text)
+                results.append(afinn.score(text))
             else:
-                return 0    
+                results.append(0)    
+        return results
     
-    def _extract_wordcount(self, url):
-        tw_id = self.tw_info[url]
-        with open(self.content_path + tw_id + '.json', 'r') as f:
-            tw_content = json.load(f)
+    def _extract_wordcount(self, data):
+        results = []
+        for item in data:  
+            tw_content = item['root_tweet']
             if 'en' in tw_content['lang'] and not None:
-                return len(self._Preprocess(tw_content['text']))
+                results.append(len(self._Preprocess(tw_content['text'])))
             else:
-                return 0    
+                results.append(0)
+        return results
 
-    def _getTermCounter(self, url, method):
+    def _getTermCounter(self, method, data):
         p = ttp.Parser()
         count_all = Counter()
-        tw_id = self.tw_info[url]
-        with open(self.content_path + tw_id + '.json', 'r') as f:
-            tw_content = json.load(f)
+        results = []
+        for item in data:  
+            tw_content = item['root_tweet']
             if 'en' in tw_content['lang'] and not None:
                 r = p.parse(tw_content['text'])
                 count_all.update(getattr(r, method))
-                return sum(count_all.values())
+                results.append(sum(count_all.values()))
             else:
-                return 0
+                results.append(0)
+        return results
     
     # Extract the number of followees of the root of the tree
-    def _extract_followees(self, url, data):
-        cascade = data[url]
-        sort = self._sort_cascade(cascade)
-        root = str(sort[0])
-        if cascade[root]['user'] in self.social_network:
-            return len(self.social_network[cascade[root]['user']])
-        else:
-            #print('Not in network data user: ' + cascade[root]['user'])
-            return 0
+    def _extract_followees(self, data):
+        return [item['cascade'][item['cascade_root']]['user_followees_count'] for item in data]
     
-    def _extract_avgtime(self, url, data):
-        cascade = data[url]
-        t = []
-        previous = datetime.datetime.fromtimestamp(int(cascade['1']['created_at'])/1000)
-        for i in range(2, len(cascade)+1):
-            tweet_timestamp = cascade[str(i)]['created_at']
-            current = datetime.datetime.fromtimestamp(int(tweet_timestamp)/1000)
-            t.append(current - previous)
-            previous = current
-        avgtime = numpy.mean(t)
-        return avgtime.seconds
+    def _extract_avgtime(self, data):
+        results = []
+        for cascade in data:
+            t = []
+            previous = datetime.datetime.fromtimestamp(int(cascade['1']['created_at'])/1000)
+            for i in range(2, len(cascade)+1):
+                tweet_timestamp = cascade[str(i)]['created_at']
+                current = datetime.datetime.fromtimestamp(int(tweet_timestamp)/1000)
+                t.append(current - previous)
+                previous = current
+            avgtime = numpy.mean(t)
+            results.append(avgtime.seconds)
+        return results
     
-    def _extract_timeToK(self, url, data):
-        cascade = data[url]
-        root_time = datetime.datetime.fromtimestamp(int(cascade['1']['created_at'])/1000)
-        k_time = datetime.datetime.fromtimestamp(int(cascade[str(len(cascade))]['created_at'])/1000)
-        interval = k_time - root_time
-        return interval.seconds
+    def _extract_timeToK(self, data):
+        results = []
+        for cascade in data:
+            root_time = datetime.datetime.fromtimestamp(int(cascade['1']['created_at'])/1000)
+            k_time = datetime.datetime.fromtimestamp(int(cascade[str(len(cascade))]['created_at'])/1000)
+            interval = k_time - root_time
+            results.append(interval.seconds)
+        return results
 
-    def _extract_numIsolated(self, url, data):
-        cascade = data[url]
-        count = 0
-        for i in cascade:
-            if 'in_reply_to' in cascade[str(i)].keys():
-                if not cascade[str(i)]['in_reply_to']:
+    def _extract_numIsolated(self, data):
+        results = []
+        for cascade in data:
+            count = 0
+            for i in cascade:
+                if 'in_reply_to' in cascade[str(i)].keys():
+                    if not cascade[str(i)]['in_reply_to']:
+                        count = count + 1
+                else:
                     count = count + 1
-            else:
-                count = count + 1
-        return count
+            results.append(count)
+        return results
 
-    def _extract_numEdges(self, url, data):
-        cascade = data[url]
-        count = 0
-        for i in cascade:
-            if 'in_reply_to' in cascade[str(i)].keys():
-                if cascade[str(i)]['in_reply_to'] != -1:
-                    count = count + len(cascade[str(i)]['in_reply_to'])
-        return count
+    def _extract_numEdges(self, data):
+        results = []
+        for cascade in data:
+            count = 0
+            for i in cascade:
+                if 'in_reply_to' in cascade[str(i)].keys():
+                    if cascade[str(i)]['in_reply_to'] != -1:
+                        count = count + len(cascade[str(i)]['in_reply_to'])
+            results.append(count)
+        return results
     
-    # Load training and test data
-    def _load_data(self, file_path):
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-        return data
-
     def _Preprocess(self, tweet):
         # Remove links
         regex = r'https?://[^\s<>"]+|www\.[^\s<>"]+'
@@ -182,62 +157,75 @@ class KnnClassifier():
         #k = self.set_k(param)
         train_parse = self._load_tweets(self.train_tweets,self.k)        
         dataframe = pd.DataFrame()
-        dataframe['urls'] = self._extract_urls(train_parse)
-        dataframe['labels'] = dataframe['urls'].apply(lambda url: self._get_label(url, self.train_tweets))     
-        dataframe['afinn'] = dataframe['urls'].apply(lambda url: self._extract_afinn(url))
-        dataframe['wordcount'] = dataframe['urls'].apply(lambda url: self._extract_wordcount(url))
-        dataframe['num_hashtags'] = dataframe['urls'].apply(lambda url: self._getTermCounter(url, 'tags'))
-        dataframe['num_urls'] = dataframe['urls'].apply(lambda url: self._getTermCounter(url, 'urls'))
-        dataframe['num_mentions'] = dataframe['urls'].apply(lambda url: self._getTermCounter(url, 'users'))
-        # 292 users are not found in social_network data
-        dataframe['num_followee'] = dataframe['urls'].apply(lambda url: self._extract_followees(url, train_parse))
-        dataframe['avg_time'] = dataframe['urls'].apply(lambda url: self._extract_avgtime(url, train_parse))
-        dataframe['time_to_k'] = dataframe['urls'].apply(lambda url: self._extract_timeToK(url, train_parse))
-        dataframe['num_isolated'] = dataframe['urls'].apply(lambda url: self._extract_numIsolated(url, train_parse))
-        dataframe['num_edges'] = dataframe['urls'].apply(lambda url: self._extract_numEdges(url, train_parse))
-        return dataframe
+        dataframe['urls'] = self._extract_urls(self.train_tweets)
+        dataframe['labels'] = self._get_label(self.train_tweets)
+        dataframe['afinn'] = self._extract_afinn(self.train_tweets)
+        dataframe['wordcount'] = self._extract_wordcount(self.train_tweets)
+        dataframe['num_hashtags'] = self._getTermCounter('tags', self.train_tweets)
+        dataframe['num_urls'] = self._getTermCounter('urls', self.train_tweets)
+        dataframe['num_mentions'] = self._getTermCounter('users', self.train_tweets)
+        dataframe['num_followee'] = self._extract_followees(self.train_tweets)
+        dataframe['avg_time'] = self._extract_avgtime(train_parse)
+        dataframe['time_to_k'] = self._extract_timeToK(train_parse)
+        dataframe['num_isolated'] = self._extract_numIsolated(train_parse)
+        dataframe['num_edges'] = self._extract_numEdges(train_parse)
+        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None), ('wordcount', None), ('num_hashtags', None), ('num_urls', None), ('num_mentions', None), ('num_followee', None), ('avg_time', None), ('time_to_k', None), ('num_isolated', None), ('num_edges', None)])), ('knn', KNeighborsClassifier())])
+        X = dataframe[dataframe.columns.drop(['urls', 'labels'])]
+        y = dataframe['labels']
+        classifier = pipeline.fit(X = X, y = y)
+        return classifier
+
+    def _get_train(self):
+        pickle_filename = "{0}.pickle".format(self.__class__.__name__)
+        if os.path.isfile(pickle_filename):
+            with open(pickle_filename, "rb") as classifier_f:
+                classifier = pickle.load(classifier_f)
+            classifier_f.close()
+        else:
+            classifier = self._train()
+
+            with open(pickle_filename, "wb") as save_classifier:
+                pickle.dump(classifier, save_classifier)
+            save_classifier.close()
+        return classifier
     
-    def _test(self):
-        test_parse = self._load_tweets(self.test_tweets,self.k)        
+    def _test(self, test_dataset):
+        test_parse = self._load_tweets(test_dataset, self.k)        
         dataframe = pd.DataFrame()
-        dataframe['urls'] = self._extract_urls(test_parse)
-        dataframe['labels'] = dataframe['urls'].apply(lambda url: self._get_label(url, self.test_tweets))        
-        dataframe['afinn'] = dataframe['urls'].apply(lambda url: self._extract_afinn(url))
-        dataframe['wordcount'] = dataframe['urls'].apply(lambda url: self._extract_wordcount(url))
-        dataframe['num_hashtags'] = dataframe['urls'].apply(lambda url: self._getTermCounter(url, 'tags'))
-        dataframe['num_urls'] = dataframe['urls'].apply(lambda url: self._getTermCounter(url, 'urls'))
-        dataframe['num_mentions'] = dataframe['urls'].apply(lambda url: self._getTermCounter(url, 'users'))
-        dataframe['num_followee'] = dataframe['urls'].apply(lambda url: self._extract_followees(url, test_parse))
-        dataframe['avg_time'] = dataframe['urls'].apply(lambda url: self._extract_avgtime(url, test_parse))
-        dataframe['time_to_k'] = dataframe['urls'].apply(lambda url: self._extract_timeToK(url, test_parse))
-        dataframe['num_isolated'] = dataframe['urls'].apply(lambda url: self._extract_numIsolated(url, test_parse))
-        dataframe['num_edges'] = dataframe['urls'].apply(lambda url: self._extract_numEdges(url, test_parse))
+        dataframe['urls'] = self._extract_urls(test_dataset)
+        dataframe['labels'] = self._get_label(test_dataset)
+        dataframe['afinn'] = self._extract_afinn(test_dataset)
+        dataframe['wordcount'] = self._extract_wordcount(test_dataset)
+        dataframe['num_hashtags'] = self._getTermCounter('tags', test_dataset)
+        dataframe['num_urls'] = self._getTermCounter('urls', test_dataset)
+        dataframe['num_mentions'] = self._getTermCounter('users', test_dataset)
+        dataframe['num_followee'] = self._extract_followees(test_dataset)
+        dataframe['avg_time'] = self._extract_avgtime(test_parse)
+        dataframe['time_to_k'] = self._extract_timeToK(test_parse)
+        dataframe['num_isolated'] = self._extract_numIsolated(test_parse)
+        dataframe['num_edges'] = self._extract_numEdges(test_parse)
         return dataframe    
     
     def _parse_cascade(self, cascade):
-        test_parse = self._load_cascade(cascade, self.k)
+        cascade_parse = self._load_tweets([cascade], self.k)
         dataframe = pd.DataFrame()
-        dataframe['urls'] = pd.Series(cascade['url'])
-        dataframe['afinn'] = pd.Series(self._extract_afinn(cascade['url']))
-        dataframe['wordcount'] = pd.Series(self._extract_wordcount(cascade['url']))
-        dataframe['num_hashtags'] = pd.Series(self._getTermCounter(cascade['url'], 'tags'))
-        dataframe['num_urls'] = pd.Series(self._getTermCounter(cascade['url'], 'urls'))
-        dataframe['num_mentions'] = pd.Series(self._getTermCounter(cascade['url'], 'users'))
-        dataframe['num_followee'] = pd.Series(self._extract_followees(cascade['url'], test_parse))
-        dataframe['avg_time'] = pd.Series(self._extract_avgtime(cascade['url'], test_parse))
-        dataframe['time_to_k'] = pd.Series(self._extract_timeToK(cascade['url'], test_parse))
-        dataframe['num_isolated'] = pd.Series(self._extract_numIsolated(cascade['url'], test_parse))
-        dataframe['num_edges'] = pd.Series(self._extract_numEdges(cascade['url'], test_parse))
+        dataframe['urls'] = self._extract_urls([cascade])
+        dataframe['afinn'] = self._extract_afinn([cascade])
+        dataframe['wordcount'] = self._extract_wordcount([cascade])
+        dataframe['num_hashtags'] = self._getTermCounter('tags', [cascade])
+        dataframe['num_urls'] = self._getTermCounter('urls', [cascade])
+        dataframe['num_mentions'] = self._getTermCounter('users', [cascade])
+        dataframe['num_followee'] = self._extract_followees([cascade])
+        dataframe['avg_time'] = self._extract_avgtime(cascade_parse)
+        dataframe['time_to_k'] = self._extract_timeToK(cascade_parse)
+        dataframe['num_isolated'] = self._extract_numIsolated(cascade_parse)
+        dataframe['num_edges'] = self._extract_numEdges(cascade_parse)
         return dataframe
         
     def classify_prob(self, cascade):
         features = self._parse_cascade(cascade)
-        test = features
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None), ('wordcount', None), ('num_hashtags', None), ('num_urls', None), ('num_mentions', None), ('num_followee', None), ('avg_time', None), ('time_to_k', None), ('num_isolated', None), ('num_edges', None)])), ('knn', KNeighborsClassifier())])
-        X = self.train[self.train.columns.drop(['urls', 'labels'])]
-        y = self.train['labels']
-        test['predict'] = pipeline.fit(X = X, y = y).predict(test)
-        prob = pipeline.fit(X = X, y = y).predict_proba(test)
+        classifier = self._get_train()
+        prob = classifier.predict_proba(features)
         return {"positive": prob[0][1], "negative": prob[0][0]}
     
     def dev(self, test_dataset):
@@ -246,34 +234,28 @@ class KnnClassifier():
             result = self.classify_prob(cascade)
             print(result)
     
-    def classify_all(self):
-        train = self._train()
-        test = self._test()
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None), ('wordcount', None), ('num_hashtags', None), ('num_urls', None), ('num_mentions', None), ('num_followee', None), ('avg_time', None), ('time_to_k', None), ('num_isolated', None), ('num_edges', None)])), ('knn', KNeighborsClassifier())])
-        X = train[train.columns.drop(['urls', 'labels'])]
-        y = train['labels']
-        test['predict'] = pipeline.fit(X = X, y = y).predict(test)
-        prob = pipeline.fit(X = X, y = y).predict_proba(test)
+    def classify_all(self, test_dataset):
+        test = self._test(test_dataset)
+        classifier = self._get_train()
+        test['predict'] = classifier.predict(test)
+        prob = classifier.predict_proba(test)
         result = [{'positive':prob[i][1], 'negative':prob[i][0]} for i in range(len(prob))]
         print(metrics.classification_report(test['labels'], test['predict']))
         print(metrics.confusion_matrix(test['labels'], test['predict']))
         return result
     
-    def classify_export(self):
-        train = self._train()
-        test = self._test()
-        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None), ('wordcount', None), ('num_hashtags', None), ('num_urls', None), ('num_mentions', None), ('num_followee', None), ('avg_time', None), ('time_to_k', None), ('num_isolated', None), ('num_edges', None)])), ('knn', KNeighborsClassifier())])
-        X = train[train.columns.drop(['urls', 'labels'])]
-        y = train['labels']
-        test['predict'] = pipeline.fit(X = X, y = y).predict(test)
-        prob = pipeline.fit(X = X, y = y).predict_proba(test)
+    def classify_export(self, test_dataset):
+        test = self._test(test_dataset)
+        classifier = self._get_train()
+        test['predict'] = classifier.predict(test)
+        prob = classifier.predict_proba(test)
         result = [{'positive':prob[i][1], 'negative':prob[i][0]} for i in range(len(prob))]
         print(metrics.classification_report(test['labels'], test['predict']))
         print(metrics.confusion_matrix(test['labels'], test['predict']))
         return result, test
     
-    def classify_tweets_prob_export(self):
-        result, test = self.classify_export()
+    def classify_tweets_prob_export(self, test_dataset):
+        result, test = self.classify_export(test_dataset)
         #export = "dataset/" + self.__class__.__name__ + "_results.json"
         export = "dataset/" + self.__class__.__name__ + "_results.json"
         tweet_results = {}
@@ -286,10 +268,10 @@ if __name__ == "__main__":
 
     #train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k2/training.json', 'dataset/k2/testing.json', 'dataset/k2/root_tweet.json', 2)
     train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
-    knn = KnnClassifier(train_dataset, test_dataset, 4)
-    knn.dev(test_dataset)
-    prob = knn.classify_all()
-    knn.classify_tweets_prob_export()
+    knn = KnnClassifier(train_dataset, 4)
+    #knn.dev(test_dataset)
+    prob = knn.classify_all(test_dataset)
+    #knn.classify_tweets_prob_export(test_dataset)
     
     #             precision    recall  f1-score   support
 
