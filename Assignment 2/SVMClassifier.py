@@ -170,9 +170,9 @@ if __name__ == '__main__':
     results = svm.classify_cascades(test_y)
     svm.classify_cascades_prob_export(test_y)
 
-    #              precision    recall  f1-score   support
+#              precision    recall  f1-score   support
 
-    #       False       0.72      0.99      0.83      1022
-    #        True       0.72      0.05      0.10       421
+#       False       0.87      0.78      0.82      1022
+#        True       0.58      0.72      0.64       421
 
-    # avg / total       0.72      0.72      0.62      1443
+# avg / total       0.79      0.76      0.77      1443

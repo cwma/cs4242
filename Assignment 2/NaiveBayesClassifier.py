@@ -190,23 +190,13 @@ if __name__ == '__main__':
 
     train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
 
-    nb = NaiveBayesCascadeClassifier(train_dataset, 2)
+    nb = NaiveBayesCascadeClassifier(train_dataset, 4)
     results = nb.classify_cascades(test_dataset)
-    #nb.classify_cascades_prob_export(test_dataset)
+    nb.classify_cascades_prob_export(test_dataset)
 
-#       k = 2
 #              precision    recall  f1-score   support
 
-#       False       0.87      0.81      0.84      1088
-#        True       0.53      0.62      0.57       365
+#       False       0.87      0.75      0.81      1022
+#        True       0.55      0.74      0.63       421
 
-# avg / total       0.78      0.77      0.77      1453
-
-
-#       k = 4
-#              precision    recall  f1-score   support
-
-#       False       0.84      0.73      0.78      1022
-#        True       0.51      0.67      0.58       421
-
-# avg / total       0.75      0.71      0.72      1443
+# avg / total       0.78      0.75      0.75      1443

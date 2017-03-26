@@ -21,6 +21,7 @@ class ClassifierWorker(multiprocessing.Process):
         self._tag_count = 2
         self._preprocesssed_results = [json.load(open("dataset/NaiveBayesCascadeClassifier_results.json", 'r')),
                                        json.load(open("dataset/RandomForestCascadeClassifier_results.json", 'r')),
+                                       json.load(open("dataset/knnClassifier_results.json", 'r')),
                                        json.load(open("dataset/SvmCascadeClassifier_results.json", 'r'))]
         self._cascades = test_dataset
 
@@ -67,7 +68,7 @@ class OptimizeWeights():
     mutation_rate = 0.2 # mutation rate
     mutation_delta = 0.5 # % range of mutation adjustment
     num_labels = 2
-    num_classifiers = 3
+    num_classifiers = 4
     num_weights = num_classifiers * num_labels # no of classifiers * labels
 
     def __init__(self):
