@@ -8,6 +8,10 @@ from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from nltk.tokenize import TweetTokenizer
 from sklearn import metrics
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
+from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
 
 import Tweet
@@ -42,37 +46,37 @@ class SvmCascadeClassifier():
 
     def _tweet_length_feature(self, cascade):
         length = len(cascade['root_tweet']['text'])
-        return int(length)
+        return length
 
     def _user_followers_feature(self, cascade):
         followers = cascade['root_tweet']['user']['followers_count']
         self._f_count.append(followers)
-        return int(followers)
+        return followers
 
     def _users_reachable_feature(self, nodes):
         reachable = 0
         for kth, node in zip(range(self.k + 1), nodes):
             reachable += node[1]['user_followees_count']
         self._r_count.append(reachable)
-        return int(reachable)
+        return reachable
 
     def _average_time_feature(self, nodes):
         timestamp = [int(node[1]['created_at']) for kth, node in zip(range(self.k + 1), nodes)]
         average = (sum(numpy.diff(timestamp)) / float(len(timestamp))) / 1000
         self._avg.append(average)
-        return int(average)
+        return average
 
     def _users_retweet_feature(self, cascade):
         retweets = cascade['root_tweet']['retweet_count']
         self._rt_count.append(retweets)
-        return int(retweets)
+        return retweets
 
     def _time_to_k_feature(self, nodes):
         first = int(nodes[0][1]['created_at'])
         kth = int(list(zip(range(self.k + 1), nodes))[-1][1][1]['created_at'])
         diff = (kth - first) / 1000
         self._time.append(diff)
-        return int(diff)
+        return diff
 
     def _extract_features(self, cascade):
         if cascade['root_tweet']['lang'] == 'en':
@@ -82,7 +86,6 @@ class SvmCascadeClassifier():
             features = {}
 
         features['tweet_length'] = self._tweet_length_feature(cascade)
-        # features['rtweet'] = self._users_retweet_feature(cascade)
 
         if self._user_followers:
             features["user_followers"] = self._user_followers_feature(cascade)
@@ -106,13 +109,14 @@ class SvmCascadeClassifier():
             classifier_f.close()
         else:
             train_set = [(self._extract_features(cascade), cascade['label']) for cascade in self._dataset]
-            # pipeline = Pipeline([('tfidf', TfidfTransformer()),
-            #                      ('chi2', SelectKBest(chi2, k=1000)),
-            #                      ('svc', SVC(kernel='linear', probability=True))])
-            self._classifier = SklearnClassifier(SVC(kernel='linear', probability=True), sparse=False).train(train_set)
+            pipeline = Pipeline([('tfidf', TfidfTransformer()),
+                                 ('chi2', SelectKBest(chi2, k=1000)),
+                                 ('rf', SVC(kernel='linear', probability=True))])
+            self._classifier = SklearnClassifier(pipeline, sparse=False).train(train_set)
 
             with open(pickle_filename, "wb") as save_classifier:
                 pickle.dump(self._classifier, save_classifier)
+
             save_classifier.close()
 
     def classify(self, cascade):
@@ -168,7 +172,7 @@ if __name__ == '__main__':
 
     #              precision    recall  f1-score   support
 
-    #       False       0.83      0.82      0.82      1022
-    #        True       0.57      0.59      0.58       421
+    #       False       0.72      0.99      0.83      1022
+    #        True       0.72      0.05      0.10       421
 
-    # avg / total       0.75      0.75      0.75      1443
+    # avg / total       0.72      0.72      0.62      1443
