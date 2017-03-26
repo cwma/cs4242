@@ -1,4 +1,6 @@
 import json
+import os
+import pickle
 
 import numpy
 from nltk.classify import SklearnClassifier
@@ -6,11 +8,10 @@ from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from nltk.tokenize import TweetTokenizer
 from sklearn import metrics
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 
 import Tweet
-import pickle
-import os
+
 
 class RandomForestCascadeClassifier():
     def __init__(self, dataset, k, user_followers=True, users_reachable=True, average_time=True, time_to_k=True):
@@ -41,37 +42,37 @@ class RandomForestCascadeClassifier():
 
     def _tweet_length_feature(self, cascade):
         length = len(cascade['root_tweet']['text'])
-        return length
+        return int(length)
 
     def _user_followers_feature(self, cascade):
         followers = cascade['root_tweet']['user']['followers_count']
         self._f_count.append(followers)
-        return followers
+        return int(followers)
 
     def _users_reachable_feature(self, nodes):
         reachable = 0
         for kth, node in zip(range(self.k + 1), nodes):
             reachable += node[1]['user_followees_count']
         self._r_count.append(reachable)
-        return reachable
+        return int(reachable)
 
     def _average_time_feature(self, nodes):
         timestamp = [int(node[1]['created_at']) for kth, node in zip(range(self.k + 1), nodes)]
         average = (sum(numpy.diff(timestamp)) / float(len(timestamp))) / 1000
         self._avg.append(average)
-        return average
+        return int(average)
 
     def _users_retweet_feature(self, cascade):
         retweets = cascade['root_tweet']['retweet_count']
         self._rt_count.append(retweets)
-        return retweets
+        return int(retweets)
 
     def _time_to_k_feature(self, nodes):
         first = int(nodes[0][1]['created_at'])
         kth = int(list(zip(range(self.k + 1), nodes))[-1][1][1]['created_at'])
         diff = (kth - first) / 1000
         self._time.append(diff)
-        return diff
+        return int(diff)
 
     def _extract_features(self, cascade):
         if cascade['root_tweet']['lang'] == 'en':
@@ -81,7 +82,7 @@ class RandomForestCascadeClassifier():
             features = {}
 
         features['tweet_length'] = self._tweet_length_feature(cascade)
-        #features['rtweet'] = self._users_retweet_feature(cascade)
+        # features['rtweet'] = self._users_retweet_feature(cascade)
 
         if self._user_followers:
             features["user_followers"] = self._user_followers_feature(cascade)
@@ -108,7 +109,7 @@ class RandomForestCascadeClassifier():
             # pipeline = Pipeline([('tfidf', TfidfTransformer()),
             #                      ('chi2', SelectKBest(chi2, k=1000)),
             #                      ('rf', RandomForestClassifier(n_estimators=500))])
-            self._classifier = SklearnClassifier(RandomForestClassifier(n_estimators=500), sparse=False).train(train_set)
+            self._classifier = SklearnClassifier(RandomForestRegressor(n_estimators=500), sparse=False).train(train_set)
 
             with open(pickle_filename, "wb") as save_classifier:
                 pickle.dump(self._classifier, save_classifier)
@@ -165,9 +166,9 @@ if __name__ == '__main__':
     results = rf.classify_cascades(test_y)
     rf.classify_cascades_prob_export(test_y)
 
-#              precision    recall  f1-score   support
+    #              precision    recall  f1-score   support
 
-#       False       0.81      0.94      0.87      1022
-#        True       0.77      0.47      0.58       421
+    #       False       0.81      0.94      0.87      1022
+    #        True       0.77      0.47      0.58       421
 
-# avg / total       0.80      0.80      0.79      1443
+    # avg / total       0.80      0.80      0.79      1443
