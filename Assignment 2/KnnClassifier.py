@@ -32,6 +32,7 @@ class KnnClassifier():
         self.social_network = self._load_data(self.network_path)
         self.train_tweets = trainset
         self.test_tweets = testset
+        self.train = self._train()
     
     # Return the integer id of the root of the cascade (because 1 sometimes may be missing)
     def _sort_cascade(self, cascade):
@@ -48,6 +49,16 @@ class KnnClassifier():
             for i in range(1,k):
                 output[entry['url']][str(sort[i])] = cascade[str(sort[i])]
         return output
+    
+    # Extract only the first k tweets in the cascade
+    def _load_cascade(self, data, k):
+        output = {}
+        cascade = data['cascade']
+        sort = self._sort_cascade(cascade)
+        output.update({data['url']: {str(sort[0]):cascade[str(sort[0])]} })
+        for i in range(1,k):
+            output[data['url']][str(sort[i])] = cascade[str(sort[i])]
+        return output    
     
     def _extract_urls(self, data):
         urls = []
@@ -203,8 +214,37 @@ class KnnClassifier():
         dataframe['num_edges'] = dataframe['urls'].apply(lambda url: self._extract_numEdges(url, test_parse))
         return dataframe    
     
-    def dev(self):
-        return self._train(), self._test()
+    def _parse_cascade(self, cascade):
+        test_parse = self._load_cascade(cascade, self.k)
+        dataframe = pd.DataFrame()
+        dataframe['urls'] = pd.Series(cascade['url'])
+        dataframe['afinn'] = pd.Series(self._extract_afinn(cascade['url']))
+        dataframe['wordcount'] = pd.Series(self._extract_wordcount(cascade['url']))
+        dataframe['num_hashtags'] = pd.Series(self._getTermCounter(cascade['url'], 'tags'))
+        dataframe['num_urls'] = pd.Series(self._getTermCounter(cascade['url'], 'urls'))
+        dataframe['num_mentions'] = pd.Series(self._getTermCounter(cascade['url'], 'users'))
+        dataframe['num_followee'] = pd.Series(self._extract_followees(cascade['url'], test_parse))
+        dataframe['avg_time'] = pd.Series(self._extract_avgtime(cascade['url'], test_parse))
+        dataframe['time_to_k'] = pd.Series(self._extract_timeToK(cascade['url'], test_parse))
+        dataframe['num_isolated'] = pd.Series(self._extract_numIsolated(cascade['url'], test_parse))
+        dataframe['num_edges'] = pd.Series(self._extract_numEdges(cascade['url'], test_parse))
+        return dataframe
+        
+    def classify_prob(self, cascade):
+        features = self._parse_cascade(cascade)
+        test = features
+        pipeline = Pipeline([('featurize', DataFrameMapper([('afinn', None), ('wordcount', None), ('num_hashtags', None), ('num_urls', None), ('num_mentions', None), ('num_followee', None), ('avg_time', None), ('time_to_k', None), ('num_isolated', None), ('num_edges', None)])), ('knn', KNeighborsClassifier())])
+        X = self.train[self.train.columns.drop(['urls', 'labels'])]
+        y = self.train['labels']
+        test['predict'] = pipeline.fit(X = X, y = y).predict(test)
+        prob = pipeline.fit(X = X, y = y).predict_proba(test)
+        return {"positive": prob[0][1], "negative": prob[0][0]}
+    
+    def dev(self, test_dataset):
+        #return self._train(), self._test()
+        for cascade in test_dataset:
+            result = self.classify_prob(cascade)
+            print(result)
     
     def classify_all(self):
         train = self._train()
@@ -230,7 +270,7 @@ class KnnClassifier():
         result = [{'positive':prob[i][1], 'negative':prob[i][0]} for i in range(len(prob))]
         print(metrics.classification_report(test['labels'], test['predict']))
         print(metrics.confusion_matrix(test['labels'], test['predict']))
-        return result, test    
+        return result, test
     
     def classify_tweets_prob_export(self):
         result, test = self.classify_export()
@@ -247,6 +287,7 @@ if __name__ == "__main__":
     #train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k2/training.json', 'dataset/k2/testing.json', 'dataset/k2/root_tweet.json', 2)
     train_dataset, test_dataset = Tweet.get_flattened_data('dataset/k4/training.json', 'dataset/k4/testing.json', 'dataset/k4/root_tweet.json', 4)
     knn = KnnClassifier(train_dataset, test_dataset, 4)
+    knn.dev(test_dataset)
     prob = knn.classify_all()
     knn.classify_tweets_prob_export()
     
